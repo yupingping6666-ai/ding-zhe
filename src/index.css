@@ -1,0 +1,207 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* ===== Core: Cream candy palette ===== */
+    --background: 32 60% 97%;
+    --foreground: 25 30% 18%;
+    --card: 30 50% 99%;
+    --card-foreground: 25 30% 18%;
+    --popover: 30 50% 99%;
+    --popover-foreground: 25 30% 18%;
+
+    /* Brand: soft coral peach */
+    --primary: 14 90% 65%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 14 100% 80%;
+
+    --secondary: 32 40% 94%;
+    --secondary-foreground: 25 20% 30%;
+
+    --muted: 32 30% 93%;
+    --muted-foreground: 25 12% 50%;
+
+    --accent: 32 35% 91%;
+    --accent-foreground: 25 20% 22%;
+
+    --destructive: 0 72% 58%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 32 25% 90%;
+    --input: 32 20% 88%;
+    --ring: 14 90% 65%;
+    --radius: 1rem;
+
+    /* ===== Type: Care (honey warm) ===== */
+    --care: 38 95% 58%;
+    --care-foreground: 32 70% 25%;
+    --care-surface: 40 100% 95%;
+    --care-muted: 38 50% 85%;
+    --care-light: 40 100% 88%;
+
+    /* ===== Type: Todo (fresh mint) ===== */
+    --todo: 160 50% 48%;
+    --todo-foreground: 160 50% 22%;
+    --todo-surface: 160 60% 95%;
+    --todo-muted: 160 30% 85%;
+    --todo-light: 160 50% 88%;
+
+    /* ===== Type: Confirm (soft lavender) ===== */
+    --confirm: 255 55% 62%;
+    --confirm-foreground: 255 40% 28%;
+    --confirm-surface: 258 70% 96%;
+    --confirm-muted: 255 30% 87%;
+    --confirm-light: 258 60% 90%;
+
+    /* ===== Status: Deferred (warm apricot) ===== */
+    --deferred: 24 90% 60%;
+    --deferred-foreground: 20 70% 30%;
+    --deferred-surface: 30 100% 96%;
+    --deferred-muted: 28 50% 85%;
+
+    /* ===== Status: Awaiting (sky blue) ===== */
+    --awaiting: 205 75% 55%;
+    --awaiting-foreground: 205 60% 28%;
+    --awaiting-surface: 205 100% 96%;
+
+    /* ===== Status: Success (green) ===== */
+    --success: 152 55% 48%;
+    --success-foreground: 0 0% 100%;
+    --success-surface: 152 50% 95%;
+
+    /* ===== Status: Skip ===== */
+    --skip: 25 10% 60%;
+    --skip-foreground: 25 10% 40%;
+
+    /* ===== Status: Expired ===== */
+    --expired: 0 55% 62%;
+    --expired-surface: 0 50% 96%;
+
+    /* ===== Shadows — soft candy ===== */
+    --shadow-card: 0 2px 12px -3px hsl(25 30% 18% / 0.06), 0 1px 4px -2px hsl(25 30% 18% / 0.04);
+    --shadow-care: 0 4px 16px -4px hsl(38 95% 58% / 0.2), 0 0 0 1px hsl(38 95% 58% / 0.06);
+    --shadow-todo: 0 4px 16px -4px hsl(160 50% 48% / 0.18), 0 0 0 1px hsl(160 50% 48% / 0.06);
+    --shadow-confirm: 0 4px 16px -4px hsl(255 55% 62% / 0.18), 0 0 0 1px hsl(255 55% 62% / 0.06);
+    --shadow-deferred: 0 4px 16px -4px hsl(24 90% 60% / 0.18), 0 0 0 1px hsl(24 90% 60% / 0.06);
+    --shadow-awaiting: 0 3px 12px -3px hsl(205 75% 55% / 0.15), 0 0 0 1px hsl(205 75% 55% / 0.06);
+    --shadow-success-btn: 0 4px 12px -3px hsl(152 55% 48% / 0.3);
+    --shadow-overlay: 0 -8px 40px -8px hsl(25 30% 18% / 0.12);
+    --shadow-chooser: 0 -10px 40px -10px hsl(25 30% 18% / 0.1);
+    --shadow-float: 0 8px 30px -8px hsl(14 90% 65% / 0.3), 0 4px 12px -4px hsl(14 90% 65% / 0.15);
+
+    /* ===== Gradients ===== */
+    --gradient-header: linear-gradient(180deg, hsl(32 60% 97%), hsl(32 45% 95%));
+    --gradient-care: linear-gradient(135deg, hsl(40 100% 95%), hsl(38 80% 90%));
+    --gradient-todo: linear-gradient(135deg, hsl(160 60% 95%), hsl(160 40% 90%));
+    --gradient-confirm: linear-gradient(135deg, hsl(258 70% 96%), hsl(255 50% 92%));
+    --gradient-deferred: linear-gradient(135deg, hsl(30 100% 96%), hsl(28 70% 92%));
+    --gradient-candy: linear-gradient(135deg, hsl(14 100% 94%), hsl(40 100% 94%), hsl(160 60% 94%));
+    --gradient-float-btn: linear-gradient(135deg, hsl(14 90% 65%), hsl(14 100% 72%));
+
+    /* ===== Time ambient gradients ===== */
+    --gradient-morning: linear-gradient(180deg, hsl(45 80% 96%), hsl(32 60% 95%));
+    --gradient-afternoon: linear-gradient(180deg, hsl(32 55% 96%), hsl(32 40% 94%));
+    --gradient-evening: linear-gradient(180deg, hsl(25 50% 94%), hsl(20 40% 91%));
+    --gradient-night: linear-gradient(180deg, hsl(230 25% 93%), hsl(240 18% 90%));
+
+    /* ===== Anniversary ===== */
+    --anniversary: 340 75% 65%;
+    --anniversary-surface: 340 85% 96%;
+
+    /* ===== Nest scene ===== */
+    --nest-bg: 32 45% 93%;
+    --nest-floor: 25 30% 87%;
+    --nest-accent: 14 55% 85%;
+  }
+}
+
+@layer base {
+  * {
+    border-color: hsl(var(--border));
+  }
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Rounded", "SF Pro Display",
+      "Helvetica Neue", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
+      sans-serif;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .gradient-header {
+    background: var(--gradient-header);
+  }
+  .gradient-care {
+    background: var(--gradient-care);
+  }
+  .gradient-todo {
+    background: var(--gradient-todo);
+  }
+  .gradient-confirm {
+    background: var(--gradient-confirm);
+  }
+  .gradient-deferred {
+    background: var(--gradient-deferred);
+  }
+  .gradient-candy {
+    background: var(--gradient-candy);
+  }
+  .gradient-float-btn {
+    background: var(--gradient-float-btn);
+  }
+  .touch-action-manipulation {
+    touch-action: manipulation;
+  }
+  /* Sticker badge */
+  .sticker {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+    font-size: 0.65rem;
+    font-weight: 600;
+    line-height: 1.2;
+  }
+  .sticker-care {
+    background-color: hsl(var(--care-surface));
+    color: hsl(var(--care-foreground));
+    border: 1px solid hsl(var(--care) / 0.15);
+  }
+  .sticker-todo {
+    background-color: hsl(var(--todo-surface));
+    color: hsl(var(--todo-foreground));
+    border: 1px solid hsl(var(--todo) / 0.15);
+  }
+  .sticker-confirm {
+    background-color: hsl(var(--confirm-surface));
+    color: hsl(var(--confirm-foreground));
+    border: 1px solid hsl(var(--confirm) / 0.15);
+  }
+  /* Type left stripe */
+  .stripe-care { border-left: 4px solid hsl(var(--care)); }
+  .stripe-todo { border-left: 4px solid hsl(var(--todo)); }
+  .stripe-confirm { border-left: 4px solid hsl(var(--confirm)); }
+  /* Time ambient */
+  .gradient-morning { background: var(--gradient-morning); }
+  .gradient-afternoon { background: var(--gradient-afternoon); }
+  .gradient-evening { background: var(--gradient-evening); }
+  .gradient-night { background: var(--gradient-night); }
+  .gradient-anniversary { background: linear-gradient(135deg, hsl(340 85% 96%), hsl(14 100% 95%)); }
+}
