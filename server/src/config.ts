@@ -22,4 +22,10 @@ export const config = {
     dir: process.env.UPLOAD_DIR || './uploads',
     maxFileSize: parseInt(process.env.MAX_FILE_SIZE || '5242880', 10), // 5MB
   },
+
+  dashscope: {
+    apiKey: process.env.DASHSCOPE_API_KEY || '',
+    model: process.env.DASHSCOPE_MODEL || 'qwen-plus',
+    baseUrl: process.env.DASHSCOPE_BASE_URL || 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+  },
 }
