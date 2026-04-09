@@ -3,3 +3,8 @@ dist
 dist-ssr
 *.local
 .DS_Store
+server/uploads/*
+!server/uploads/.gitkeep
+server/.env
+server/dist
+server/node_modules

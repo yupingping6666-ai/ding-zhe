@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import type {
   TaskTemplate,
   TaskInstance,
@@ -16,6 +16,9 @@ import { INTENSITY_CONFIG, ITEM_TYPE_CONFIG } from '@/types'
 import type { CompanionAnimal, RelationType } from '@/lib/companion'
 import { calculateMood, calculateEnergy, getTodayDateString } from '@/lib/pet-state'
 import { isTodayAnniversary } from '@/lib/anniversary'
+
+// API integration (optional)
+import * as taskApi from '@/api/tasks'
 
 // ---- helpers ----
 let _id = 100
@@ -268,7 +271,8 @@ function createSeedData(): { templates: TaskTemplate[]; instances: TaskInstance[
 }
 
 // ---- hook ----
-export function useStore() {
+export function useStore(options?: { apiMode?: boolean }) {
+  const { apiMode = false } = options || {}
   const seed = createSeedData()
   const [templates, setTemplates] = useState<TaskTemplate[]>(seed.templates)
   const [instances, setInstances] = useState<TaskInstance[]>(seed.instances)
@@ -276,6 +280,43 @@ export function useStore() {
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'skip' } | null>(null)
   const [users, setUsers] = useState<User[]>(USERS)
   const [space, setSpace] = useState<RelationshipSpace>(INITIAL_SPACE)
+  const [isApiLoading, setIsApiLoading] = useState(false)
+
+  // Fetch from API when apiMode is enabled
+  useEffect(() => {
+    if (!apiMode) return
+    setIsApiLoading(true)
+    taskApi.getTasks().then((result) => {
+      if (result.ok && result.data) {
+        // Map API data to frontend format
+        const apiTemplates: TaskTemplate[] = []
+        const apiInstances: TaskInstance[] = []
+        for (const tpl of result.data) {
+          apiTemplates.push({
+            id: tpl.id,
+            creatorId: tpl.creatorId,
+            receiverId: tpl.receiverId,
+            name: tpl.name,
+            category: tpl.category,
+            remindTime: tpl.remindTime,
+            repeatRule: tpl.repeatRule,
+            weeklyDays: tpl.weeklyDays,
+            followUpIntensity: tpl.followUpIntensity,
+            isActive: tpl.isActive,
+            itemType: tpl.itemType,
+            note: tpl.note,
+            createdAt: tpl.createdAt,
+          })
+          for (const inst of tpl.instances) {
+            apiInstances.push(inst)
+          }
+        }
+        setTemplates(apiTemplates)
+        setInstances(apiInstances)
+      }
+      setIsApiLoading(false)
+    }).catch(() => setIsApiLoading(false))
+  }, [apiMode])
 
   const showToast = useCallback((message: string, type: 'success' | 'info' | 'skip' = 'info') => {
     setToast({ message, type })
@@ -661,6 +702,7 @@ export function useStore() {
     pending,
     todayDone,
     toast,
+    isApiLoading,
     // Pet & space derived
     currentPetState,
     todayCompletedCount,
