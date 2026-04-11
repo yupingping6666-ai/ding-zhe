@@ -9,6 +9,7 @@ export interface Photo {
   relatedTaskId: string | null
   tags: string[]
   createdAt: string
+  mediaType?: 'image' | 'video'
 }
 
 export async function getPhotos(limit = 50) {

@@ -23,6 +23,11 @@ export const config = {
     maxFileSize: parseInt(process.env.MAX_FILE_SIZE || '5242880', 10), // 5MB
   },
 
+  sms: {
+    mockCode: process.env.SMS_MOCK_CODE || '',
+    codeExpiry: parseInt(process.env.SMS_CODE_EXPIRY || '300', 10),
+  },
+
   dashscope: {
     apiKey: process.env.DASHSCOPE_API_KEY || '',
     model: process.env.DASHSCOPE_MODEL || 'qwen-plus',

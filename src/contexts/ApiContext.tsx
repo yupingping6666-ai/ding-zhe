@@ -2,11 +2,17 @@ import { createContext, useContext, useState, useCallback, useEffect, type React
 import * as authApi from '@/api/auth'
 import type { UserProfile } from '@/api/auth'
 
+type AuthResult = { ok: boolean; error?: string }
+
 interface ApiContextValue {
   isAuthenticated: boolean
   isLoading: boolean
   user: UserProfile | null
-  login: (nickname: string) => Promise<{ ok: boolean; error?: string }>
+  login: (nickname: string) => Promise<AuthResult>
+  loginWithPhone: (phone: string, password: string) => Promise<AuthResult>
+  register: (phone: string, code: string, password: string) => Promise<AuthResult>
+  sendCode: (phone: string, purpose: 'register' | 'reset_password') => Promise<AuthResult>
+  resetPassword: (phone: string, code: string, newPassword: string) => Promise<AuthResult>
   logout: () => void
 }
 
@@ -38,7 +44,6 @@ export function ApiProvider({ children }: ApiProviderProps) {
           setUser(result.data)
           setIsAuthenticated(true)
         } else {
-          // Token invalid or expired
           localStorage.removeItem('dingzhe_token')
         }
         setIsLoading(false)
@@ -61,6 +66,44 @@ export function ApiProvider({ children }: ApiProviderProps) {
     return { ok: false, error: result.error?.message }
   }, [])
 
+  const loginWithPhone = useCallback(async (phone: string, password: string) => {
+    const result = await authApi.loginWithPhone(phone, password)
+    if (result.ok) {
+      setUser(result.user)
+      setIsAuthenticated(true)
+      return { ok: true }
+    }
+    return { ok: false, error: result.error?.message }
+  }, [])
+
+  const register = useCallback(async (phone: string, code: string, password: string) => {
+    const result = await authApi.register(phone, code, password)
+    if (result.ok) {
+      setUser(result.user)
+      setIsAuthenticated(true)
+      return { ok: true }
+    }
+    return { ok: false, error: result.error?.message }
+  }, [])
+
+  const sendCode = useCallback(async (phone: string, purpose: 'register' | 'reset_password') => {
+    const result = await authApi.sendVerificationCode(phone, purpose)
+    if (result.ok) {
+      return { ok: true }
+    }
+    return { ok: false, error: result.error?.message }
+  }, [])
+
+  const resetPassword = useCallback(async (phone: string, code: string, newPassword: string) => {
+    const result = await authApi.resetPassword(phone, code, newPassword)
+    if (result.ok) {
+      setUser(result.user)
+      setIsAuthenticated(true)
+      return { ok: true }
+    }
+    return { ok: false, error: result.error?.message }
+  }, [])
+
   const logout = useCallback(() => {
     authApi.logout()
     setUser(null)
@@ -68,7 +111,10 @@ export function ApiProvider({ children }: ApiProviderProps) {
   }, [])
 
   return (
-    <ApiContext.Provider value={{ isAuthenticated, isLoading, user, login, logout }}>
+    <ApiContext.Provider value={{
+      isAuthenticated, isLoading, user,
+      login, loginWithPhone, register, sendCode, resetPassword, logout,
+    }}>
       {children}
     </ApiContext.Provider>
   )

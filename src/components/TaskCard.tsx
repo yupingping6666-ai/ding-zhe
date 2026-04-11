@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { ITEM_TYPE_CONFIG } from '@/types'
-import { formatDelay, formatTime } from '@/lib/time'
+import { formatDelay, formatTime, formatDateLabel } from '@/lib/time'
 import type { TaskInstance, TaskTemplate } from '@/types'
 import { getUser } from '@/store'
 import { useCurrentUser } from '@/contexts/UserContext'
-import { Clock, ChevronDown, Send } from 'lucide-react'
+import { Clock, ChevronDown, Send, Calendar, Date as DateIcon } from 'lucide-react'
 
 interface Props {
   instance: TaskInstance
@@ -16,6 +16,7 @@ interface Props {
   onCantDo: (id: string) => void
   onFeedback: (id: string, text: string) => void
   onTapName?: (id: string) => void
+  onDateChange?: (id: string, newDate: Date) => void
   variant: 'deferred' | 'awaiting' | 'pending'
 }
 
@@ -25,8 +26,9 @@ const DEFER_OPTIONS = [
   { label: '1 小时后', mins: 60 },
 ]
 
-export function TaskCard({ instance, template, onComplete, onDefer, onSkip, onCantDo, onFeedback, onTapName, variant }: Props) {
+export function TaskCard({ instance, template, onComplete, onDefer, onSkip, onCantDo, onFeedback, onTapName, onDateChange, variant }: Props) {
   const [showDefer, setShowDefer] = useState(false)
+  const [showDatePicker, setShowDatePicker] = useState(false)
   const [feedbackText, setFeedbackText] = useState('')
   const currentUserId = useCurrentUser()
 
@@ -70,7 +72,7 @@ export function TaskCard({ instance, template, onComplete, onDefer, onSkip, onCa
         onClick={() => onTapName?.(instance.templateId)}
       >
         <span className="text-2xl flex-shrink-0 mt-0.5">{typeConf.emoji}</span>
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 relative">
           <div className="flex items-center gap-2">
             <h3 className="text-base font-bold text-foreground truncate">
               {template.name}
@@ -79,19 +81,62 @@ export function TaskCard({ instance, template, onComplete, onDefer, onSkip, onCa
               {typeConf.label}
             </span>
           </div>
-          <div className="flex items-center gap-2 mt-0.5">
+          <div className="flex items-center gap-2 mt-1">
             {senderLabel && (
               <span className="text-xs text-muted-foreground">{senderLabel}</span>
             )}
-            <span className="text-xs text-muted-foreground/70">
+          </div>
+          {/* Time display - more prominent */}
+          <div className="flex items-center gap-1.5 mt-1.5">
+            <Calendar className="w-3.5 h-3.5 text-primary/70" />
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setShowDatePicker(!showDatePicker); }}
+              className="text-sm font-semibold text-primary hover:underline cursor-pointer"
+            >
+              {formatDateLabel(instance.scheduledTime)}
+            </button>
+            <span className="text-sm font-medium text-foreground/80">
               {formatTime(instance.scheduledTime)}
             </span>
             {isDeferred && delayText && (
-              <span className="text-xs font-semibold text-deferred">
+              <span className="text-xs font-semibold text-deferred ml-1">
                 +{delayText}
               </span>
             )}
           </div>
+
+          {/* Date picker dropdown */}
+          {showDatePicker && (
+            <div className="absolute left-0 top-full z-30 mt-2 bg-card border rounded-2xl shadow-lg p-3 animate-fade-in w-56">
+              <div className="text-xs font-medium text-muted-foreground mb-2">选择日期</div>
+              <div className="grid grid-cols-3 gap-1.5">
+                {[
+                  { label: '今天', offset: 0 },
+                  { label: '明天', offset: 1 },
+                  { label: '后天', offset: 2 },
+                  { label: '3天后', offset: 3 },
+                  { label: '5天后', offset: 5 },
+                  { label: '下周', offset: 7 },
+                ].map((opt) => (
+                  <button
+                    key={opt.offset}
+                    type="button"
+                    className="px-2 py-1.5 text-xs rounded-lg bg-secondary hover:bg-accent text-foreground transition-colors text-center"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      const newDate = new Date()
+                      newDate.setDate(newDate.getDate() + opt.offset)
+                      onDateChange?.(instance.id, newDate)
+                      setShowDatePicker(false)
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Follow-up dots */}

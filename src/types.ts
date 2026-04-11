@@ -4,16 +4,66 @@ import type { CompanionAnimal, CompanionMood, RelationType } from '@/lib/compani
 export type Category = 'health' | 'life' | 'work' | 'study' | 'other'
 export type RepeatRule = 'once' | 'daily' | 'weekly'
 export type FollowUpIntensity = 'light' | 'standard' | 'strong'
-export type InstanceStatus = 'pending' | 'awaiting' | 'deferred' | 'completed' | 'skipped' | 'expired'
+export type InstanceStatus = 'draft' | 'pending' | 'awaiting' | 'deferred' | 'completed' | 'skipped' | 'expired'
 
 // ---- New: Item type & relation status ----
 export type ItemType = 'care' | 'todo' | 'confirm'
-export type RelationStatus = 'sent' | 'delivered' | 'seen' | 'responded' | 'resolved'
+export type RelationStatus = 'draft' | 'sent' | 'delivered' | 'seen' | 'responded' | 'resolved'
+
+// ---- New: Create content type for mode-aware creation ----
+export type CreateContentType = 'text-journal' | 'mood-capture' | 'photo-journal' | 'care' | 'todo' | 'confirm' | 'companion'
+
+// ---- New: Feeling entry type ----
+export type FeelingEntryType = 'text' | 'photo' | 'mood'
+
+// ---- New: Feeling entry (personal emotion/mood recording) ----
+export interface FeelingEntry {
+  id: string
+  userId: string
+  content: string           // 感受内容
+  mood: string              // 情绪标签 emoji
+  entryType?: FeelingEntryType // 记录类型
+  aboutPartnerId?: string   // 是否关于 TA（双人模式）
+  photoUrl?: string         // 向后兼容：首张照片
+  photoUrls?: string[]      // 多张照片（最多 9 张）
+  createdAt: number
+  isDraft: boolean          // 是否未发送（双人模式）
+  isHidden?: boolean        // 是否隐藏（纪念页）
+  hiddenPhotoIndices?: number[]  // 单独隐藏的照片索引
+  location?: { lat: number; lng: number; name?: string }
+  mediaTypes?: ('image' | 'video')[]  // 与 photoUrls 平行，标记每个 URL 类型
+}
+
+// ---- Comment (for photo wall) ----
+export interface Comment {
+  id: string
+  entryId: string           // 关联的 FeelingEntry ID
+  content: string
+  author: 'user' | 'ai'
+  userId?: string           // 评论者 userId（双人模式下区分）
+  createdAt: number
+}
 
 // ---- Pet & Space ----
 export type PetMood = 'happy' | 'content' | 'neutral' | 'lonely' | 'sleepy'
 export type TimeOfDay = 'morning' | 'afternoon' | 'evening' | 'night'
 export type PetInteractionType = 'pet' | 'feed'
+export type PetExpression = 'idle' | 'happy' | 'sleeping' | 'love' | 'eating' | 'thinking' | 'curious' | 'angry' | 'playing' | 'sitting' | 'lying' | 'standing' | 'error' | 'achievement' | 'notification' | 'empty'
+
+// ---- Pet Chat ----
+export type ChatRole = 'user' | 'cat' | 'system'
+export type ChatQuickAction = 'pet' | 'play' | 'advice'
+
+export interface ChatMessage {
+  id: string
+  role: ChatRole
+  content: string
+  timestamp: number
+  expression?: PetExpression
+  actionType?: ChatQuickAction
+  isRelay?: boolean
+  relayId?: string
+}
 
 export interface PetState {
   mood: PetMood
@@ -206,9 +256,46 @@ export interface CreateTaskInput {
   repeatRule: RepeatRule
   weeklyDays: number[]
   followUpIntensity: FollowUpIntensity
+  // Date offset: 0=today, 1=tomorrow, 2=day-after, null=specificDate
+  scheduledDateOffset?: number | null
+  specificDate?: string | null  // "MM-DD" format
   // Dual-person fields
   itemType: ItemType
   creatorId: string
   receiverId: string
   note: string
+}
+
+// ---- Narrative entry (AI-generated relationship story) ----
+export interface NarrativeEntry {
+  id: string
+  userId: string
+  title: string
+  bodyText: string
+  petSummary: string
+  photoUrls: string[]
+  feelingIds: string[]
+  createdAt: number
+}
+
+// ---- Emotion Relay (AI代传) ----
+export type RelayVersionType = 'gentle' | 'casual' | 'direct'
+export type RelayMessageStatus = 'sent' | 'delivered' | 'read'
+
+export interface RelayMessage {
+  id: string
+  senderId: string
+  receiverId: string
+  originalText: string
+  selectedVersion: RelayVersionType
+  relayText: string
+  status: RelayMessageStatus
+  createdAt: number
+  readAt: number | null
+}
+
+export interface RelayGenerateResult {
+  gentle: string   // 温柔版
+  casual: string   // 轻松版
+  direct: string   // 直球版
 }

@@ -11,14 +11,24 @@ import type {
   PetState,
   PetInteractionType,
   Anniversary,
+  FeelingEntry,
+  Comment,
+  NarrativeEntry,
+  RelayMessage,
+  RelayVersionType,
 } from '@/types'
 import { INTENSITY_CONFIG, ITEM_TYPE_CONFIG } from '@/types'
 import type { CompanionAnimal, RelationType } from '@/lib/companion'
+import { COMPANION_CHARACTERS } from '@/lib/companion'
 import { calculateMood, calculateEnergy, getTodayDateString } from '@/lib/pet-state'
 import { isTodayAnniversary } from '@/lib/anniversary'
+import { generateWarmComment, generatePetComment } from '@/lib/ai-comments'
+import { generateDemoNarrativeEntry } from '@/lib/narrative'
+import * as narrativeApi from '@/api/narrative'
 
 // API integration (optional)
 import * as taskApi from '@/api/tasks'
+import * as spaceApi from '@/api/space'
 
 // ---- helpers ----
 let _id = 100
@@ -48,7 +58,7 @@ const INITIAL_SPACE: RelationshipSpace = {
   userIds: ['user-1', 'user-2'],
   relationType: 'couple',
   companion: 'cat',
-  createdAt: Date.now() - 30 * 86400000,
+  createdAt: Date.now(),
   petState: {
     mood: 'content',
     energy: 60,
@@ -274,45 +284,127 @@ function createSeedData(): { templates: TaskTemplate[]; instances: TaskInstance[
 export function useStore(options?: { apiMode?: boolean }) {
   const { apiMode = false } = options || {}
   const seed = createSeedData()
-  const [templates, setTemplates] = useState<TaskTemplate[]>(seed.templates)
-  const [instances, setInstances] = useState<TaskInstance[]>(seed.instances)
+
+  // Use lazy initialization to ensure seed data is only created once
+  const [templates, setTemplates] = useState<TaskTemplate[]>(() => seed.templates)
+  const [instances, setInstances] = useState<TaskInstance[]>(() => seed.instances)
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'skip' } | null>(null)
   const [users, setUsers] = useState<User[]>(USERS)
   const [space, setSpace] = useState<RelationshipSpace>(INITIAL_SPACE)
   const [isApiLoading, setIsApiLoading] = useState(false)
 
+  // ---- Relay messages state ----
+  const [relayMessages, setRelayMessages] = useState<RelayMessage[]>([])
+
+  // ---- Feelings state ----
+  const FEELINGS_SEED: FeelingEntry[] = [
+    {
+      id: 'feeling-1', userId: 'user-1', content: '今天心情还不错，阳光很好', mood: '😊',
+      entryType: 'mood', createdAt: Date.now() - 2 * 3600000, isDraft: false,
+    },
+    {
+      id: 'feeling-2', userId: 'user-1', content: '工作压力有点大，需要找个方式放松', mood: '😔',
+      entryType: 'text', createdAt: Date.now() - 5 * 3600000, isDraft: false,
+    },
+    {
+      id: 'feeling-3', userId: 'user-1', content: '下午在公园散步，很舒服', mood: '🌿',
+      entryType: 'mood', createdAt: Date.now() - 8 * 3600000, isDraft: false,
+    },
+    {
+      id: 'feeling-photo-1', userId: 'user-1', content: '和TA一起吃了晚餐，很温暖', mood: '🥰',
+      entryType: 'photo', createdAt: Date.now() - 24 * 3600000, isDraft: false,
+      photoUrls: ['https://picsum.photos/seed/dinner1/400/300', 'https://picsum.photos/seed/dinner2/400/300'],
+      photoUrl: 'https://picsum.photos/seed/dinner1/400/300',
+      location: { lat: 39.9042, lng: 116.4074, name: '北京市朝阳区' },
+    },
+    {
+      id: 'feeling-photo-2', userId: 'user-1', content: '周末去了海边，天气超好', mood: '😊',
+      entryType: 'photo', createdAt: Date.now() - 48 * 3600000, isDraft: false,
+      photoUrls: [
+        'https://picsum.photos/seed/beach1/400/300',
+        'https://picsum.photos/seed/beach2/400/300',
+        'https://picsum.photos/seed/beach3/400/300',
+      ],
+      photoUrl: 'https://picsum.photos/seed/beach1/400/300',
+      location: { lat: 36.0671, lng: 120.3826, name: '青岛市崂山区' },
+    },
+    {
+      id: 'feeling-photo-3', userId: 'user-1', content: '今天的咖啡特别好喝', mood: '😌',
+      entryType: 'photo', createdAt: Date.now() - 72 * 3600000, isDraft: false,
+      photoUrls: ['https://picsum.photos/seed/coffee1/400/300'],
+      photoUrl: 'https://picsum.photos/seed/coffee1/400/300',
+    },
+    {
+      id: 'feeling-hidden-1', userId: 'user-1', content: '这条是隐藏的记录', mood: '💭',
+      entryType: 'mood', createdAt: Date.now() - 96 * 3600000, isDraft: false,
+      isHidden: true,
+    },
+    // --- user-2 seed feelings (dual mode sharing) ---
+    {
+      id: 'feeling-u2-1', userId: 'user-2', content: '今天加班到很晚，但感觉很有成就感', mood: '💪',
+      entryType: 'mood', createdAt: Date.now() - 3 * 3600000, isDraft: false,
+    },
+    {
+      id: 'feeling-u2-2', userId: 'user-2', content: '给TA做了一顿饭，看到TA开心的样子，值了', mood: '🥰',
+      entryType: 'photo', createdAt: Date.now() - 30 * 3600000, isDraft: false,
+      photoUrls: ['https://picsum.photos/seed/cook1/400/300', 'https://picsum.photos/seed/cook2/400/300'],
+      photoUrl: 'https://picsum.photos/seed/cook1/400/300',
+    },
+    {
+      id: 'feeling-u2-hidden', userId: 'user-2', content: '小明的隐藏记录', mood: '🤫',
+      entryType: 'mood', createdAt: Date.now() - 80 * 3600000, isDraft: false,
+      isHidden: true,
+    },
+  ]
+
+  const [feelings, setFeelings] = useState<FeelingEntry[]>(FEELINGS_SEED)
+
+  // ---- Comments state ----
+  const [comments, setComments] = useState<Comment[]>([
+    { id: 'comment-seed-1', entryId: 'feeling-1', content: '看起来今天是美好的一天！', author: 'ai', createdAt: Date.now() - 2 * 3600000 + 500 },
+    { id: 'comment-seed-2', entryId: 'feeling-2', content: '抱抱你，一切都会好起来的 🤗', author: 'ai', createdAt: Date.now() - 5 * 3600000 + 500 },
+    { id: 'comment-seed-3', entryId: 'feeling-3', content: '每个瞬间都值得被珍惜 💫', author: 'ai', createdAt: Date.now() - 8 * 3600000 + 500 },
+  ])
+
+  // ---- Narratives state ----
+  const [narratives, setNarratives] = useState<NarrativeEntry[]>([])
+
   // Fetch from API when apiMode is enabled
   useEffect(() => {
     if (!apiMode) return
     setIsApiLoading(true)
-    taskApi.getTasks().then((result) => {
-      if (result.ok && result.data) {
-        // Map API data to frontend format
+    Promise.all([
+      taskApi.getTasks(),
+      spaceApi.getMySpace(),
+    ]).then(([taskResult, spaceResult]) => {
+      if (taskResult.ok && taskResult.data) {
         const apiTemplates: TaskTemplate[] = []
         const apiInstances: TaskInstance[] = []
-        for (const tpl of result.data) {
+        for (const tpl of taskResult.data) {
           apiTemplates.push({
-            id: tpl.id,
-            creatorId: tpl.creatorId,
-            receiverId: tpl.receiverId,
-            name: tpl.name,
-            category: tpl.category,
-            remindTime: tpl.remindTime,
-            repeatRule: tpl.repeatRule,
-            weeklyDays: tpl.weeklyDays,
-            followUpIntensity: tpl.followUpIntensity,
-            isActive: tpl.isActive,
-            itemType: tpl.itemType,
-            note: tpl.note,
-            createdAt: tpl.createdAt,
+            id: tpl.id, creatorId: tpl.creatorId, receiverId: tpl.receiverId,
+            name: tpl.name, category: tpl.category, remindTime: tpl.remindTime,
+            repeatRule: tpl.repeatRule, weeklyDays: tpl.weeklyDays,
+            followUpIntensity: tpl.followUpIntensity, isActive: tpl.isActive,
+            itemType: tpl.itemType, note: tpl.note, createdAt: tpl.createdAt,
           })
-          for (const inst of tpl.instances) {
-            apiInstances.push(inst)
-          }
+          for (const inst of tpl.instances) { apiInstances.push(inst) }
         }
         setTemplates(apiTemplates)
         setInstances(apiInstances)
+      }
+      if (spaceResult.ok && spaceResult.data) {
+        const sp = spaceResult.data!
+        setSpace({
+          id: sp.id,
+          userIds: [],
+          relationType: sp.relationType,
+          companion: sp.companion,
+          createdAt: sp.createdAt,
+          petState: sp.petState,
+          anniversaries: sp.anniversaries,
+        })
       }
       setIsApiLoading(false)
     }).catch(() => setIsApiLoading(false))
@@ -524,11 +616,139 @@ export function useStore(options?: { apiMode?: boolean }) {
     )
   }, [])
 
+  // ---- Draft task flow ----
+  const saveDraftTask = useCallback(
+    (data: CreateTaskInput) => {
+      const templateId = uid()
+      const intensity = INTENSITY_CONFIG[data.followUpIntensity]
+      const [h, m] = data.remindTime.split(':').map(Number)
+
+      const newTemplate: TaskTemplate = {
+        id: templateId, name: data.name, category: data.category,
+        remindTime: data.remindTime, repeatRule: data.repeatRule,
+        weeklyDays: data.weeklyDays, followUpIntensity: data.followUpIntensity,
+        isActive: true, createdAt: Date.now(), itemType: data.itemType,
+        creatorId: data.creatorId, receiverId: data.receiverId, note: data.note,
+      }
+
+      const newInstance: TaskInstance = {
+        id: uid(), templateId, scheduledTime: todayAt(h, m),
+        status: 'pending', followUpCount: 0, maxFollowUps: intensity.maxFollowUps,
+        followUpInterval: intensity.interval, nextFollowUpAt: null,
+        deferredSince: null, completedAt: null, skippedAt: null, expiredAt: null,
+        actionLog: [], relationStatus: 'draft', feedback: null,
+      }
+
+      setTemplates((prev) => [...prev, newTemplate])
+      setInstances((prev) => [...prev, newInstance])
+      // NO notification for drafts
+      showToast('已保存为草稿', 'info')
+    },
+    [showToast]
+  )
+
+  const promoteDraftToSent = useCallback(
+    (templateId: string) => {
+      setInstances((prev) =>
+        prev.map((inst) =>
+          inst.templateId === templateId && inst.relationStatus === 'draft'
+            ? { ...inst, relationStatus: 'sent' as RelationStatus }
+            : inst
+        )
+      )
+      // Notify receiver
+      const tpl = templates.find((t) => t.id === templateId)
+      if (tpl && tpl.creatorId !== tpl.receiverId) {
+        const creatorName = getUser(tpl.creatorId).name
+        const typeLabel = ITEM_TYPE_CONFIG[tpl.itemType].label
+        addNotification(
+          tpl.receiverId,
+          `${creatorName} 给你发了${typeLabel}「${tpl.name}」`,
+          templateId
+        )
+      }
+      showToast('已发送给 TA', 'success')
+    },
+    [showToast, templates, addNotification]
+  )
+
+  // ---- Feelings ----
+  const saveFeeling = useCallback(
+    (content: string, mood: string, aboutPartnerId?: string, entryType?: FeelingEntry['entryType'], photoUrls?: string[], location?: FeelingEntry['location'], mediaTypes?: FeelingEntry['mediaTypes']): string => {
+      const feelingId = uid()
+      const newFeeling: FeelingEntry = {
+        id: feelingId, userId: users[0].id, content, mood,
+        entryType, aboutPartnerId, photoUrl: photoUrls?.[0], photoUrls,
+        location, mediaTypes,
+        createdAt: Date.now(), isDraft: false,
+      }
+      setFeelings((prev) => [...prev, newFeeling])
+      // Auto-generate AI comment
+      const aiText = generateWarmComment(content, mood, !!(photoUrls && photoUrls.length > 0))
+      const aiComment: Comment = {
+        id: uid(), entryId: feelingId, content: aiText, author: 'ai', createdAt: Date.now() + 500,
+      }
+      setComments((prev) => [...prev, aiComment])
+      showToast('感受已记录', 'success')
+      return feelingId
+    },
+    [showToast, users]
+  )
+
+  const convertFeelingToTask = useCallback(
+    (feelingId: string) => {
+      const feeling = feelings.find((f) => f.id === feelingId)
+      if (!feeling || !feeling.aboutPartnerId) return
+
+      const newTemplate: TaskTemplate = {
+        id: uid(), name: feeling.content.substring(0, 20),
+        category: 'other', remindTime: '12:00', repeatRule: 'once',
+        weeklyDays: [], followUpIntensity: 'light', isActive: true,
+        createdAt: Date.now(), itemType: 'care',
+        creatorId: feeling.userId, receiverId: feeling.aboutPartnerId,
+        note: feeling.content,
+      }
+
+      const newInstance: TaskInstance = {
+        id: uid(), templateId: newTemplate.id, scheduledTime: todayAt(12, 0),
+        status: 'pending', followUpCount: 0, maxFollowUps: 2,
+        followUpInterval: 30, nextFollowUpAt: null,
+        deferredSince: null, completedAt: null, skippedAt: null, expiredAt: null,
+        actionLog: [], relationStatus: 'draft', feedback: null,
+      }
+
+      setTemplates((prev) => [...prev, newTemplate])
+      setInstances((prev) => [...prev, newInstance])
+      setFeelings((prev) => prev.filter((f) => f.id !== feelingId))
+      showToast('已转为草稿任务', 'info')
+    },
+    [showToast, feelings]
+  )
+
   const createTask = useCallback(
     (data: CreateTaskInput) => {
       const templateId = uid()
       const intensity = INTENSITY_CONFIG[data.followUpIntensity]
       const [h, m] = data.remindTime.split(':').map(Number)
+
+      // Calculate scheduled time with date offset
+      const now = new Date()
+      let scheduledDate = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+
+      if (data.scheduledDateOffset && data.scheduledDateOffset > 0) {
+        // Add days offset
+        scheduledDate.setDate(scheduledDate.getDate() + data.scheduledDateOffset)
+      } else if (data.specificDate) {
+        // Parse specific date "MM-DD"
+        const [month, day] = data.specificDate.split('-').map(Number)
+        scheduledDate = new Date(now.getFullYear(), month - 1, day)
+        // If the date is in the past this year, use next year
+        if (scheduledDate < now) {
+          scheduledDate.setFullYear(scheduledDate.getFullYear() + 1)
+        }
+      }
+
+      const scheduledTime = scheduledDate.getTime() + h * 3600000 + m * 60000
 
       const newTemplate: TaskTemplate = {
         id: templateId,
@@ -549,7 +769,7 @@ export function useStore(options?: { apiMode?: boolean }) {
       const newInstance: TaskInstance = {
         id: uid(),
         templateId,
-        scheduledTime: todayAt(h, m),
+        scheduledTime,
         status: 'pending',
         followUpCount: 0,
         maxFollowUps: intensity.maxFollowUps,
@@ -583,6 +803,19 @@ export function useStore(options?: { apiMode?: boolean }) {
     [showToast, addNotification]
   )
 
+  const updateInstanceDate = useCallback((instanceId: string, newDate: Date) => {
+    setInstances((prev) =>
+      prev.map((inst) => {
+        if (inst.id !== instanceId) return inst
+        // Keep the original time (hours and minutes), just change the date
+        const oldDate = new Date(inst.scheduledTime)
+        const newScheduledTime = new Date(newDate)
+        newScheduledTime.setHours(oldDate.getHours(), oldDate.getMinutes(), 0, 0)
+        return { ...inst, scheduledTime: newScheduledTime.getTime() }
+      })
+    )
+  }, [])
+
   // ---- User profile management ----
   const getUserProfile = useCallback(
     (userId: string) => users.find((u) => u.id === userId) || users[0],
@@ -591,8 +824,14 @@ export function useStore(options?: { apiMode?: boolean }) {
 
   // ---- Shared space management ----
   const updateSpaceCompanion = useCallback((companion: CompanionAnimal) => {
-    setSpace((prev) => ({ ...prev, companion }))
-  }, [])
+    if (apiMode) {
+      spaceApi.updateCompanion(companion).then((result) => {
+        if (result.ok && result.data) setSpace((prev) => ({ ...prev, companion }))
+      })
+    } else {
+      setSpace((prev) => ({ ...prev, companion }))
+    }
+  }, [apiMode])
 
   const updateSpaceRelationType = useCallback((relationType: RelationType) => {
     setSpace((prev) => ({ ...prev, relationType }))
@@ -608,43 +847,82 @@ export function useStore(options?: { apiMode?: boolean }) {
 
   // ---- Pet interaction ----
   const petInteraction = useCallback((type: PetInteractionType) => {
-    setSpace((prev) => {
-      const today = getTodayDateString()
-      const isNewDay = prev.petState.interactionDate !== today
-      const currentInteractions = isNewDay ? 0 : prev.petState.todayInteractions
-
-      const newPetState: PetState = {
-        ...prev.petState,
-        lastFed: type === 'feed' ? Date.now() : prev.petState.lastFed,
-        lastPetted: type === 'pet' ? Date.now() : prev.petState.lastPetted,
-        todayInteractions: currentInteractions + 1,
-        interactionDate: today,
-      }
-      return { ...prev, petState: newPetState }
-    })
-  }, [])
+    if (apiMode) {
+      spaceApi.petInteract(type).then((result) => {
+        if (result.ok && result.data) {
+          setSpace((prev) => ({ ...prev, petState: result.data! }))
+        }
+      })
+    } else {
+      setSpace((prev) => {
+        const today = getTodayDateString()
+        const isNewDay = prev.petState.interactionDate !== today
+        const currentInteractions = isNewDay ? 0 : prev.petState.todayInteractions
+        const newPetState: PetState = {
+          ...prev.petState,
+          lastFed: type === 'feed' ? Date.now() : prev.petState.lastFed,
+          lastPetted: type === 'pet' ? Date.now() : prev.petState.lastPetted,
+          todayInteractions: currentInteractions + 1,
+          interactionDate: today,
+        }
+        return { ...prev, petState: newPetState }
+      })
+    }
+  }, [apiMode])
 
   // ---- Anniversary CRUD ----
   const addAnniversary = useCallback((a: Omit<Anniversary, 'id'>) => {
-    const newA: Anniversary = { ...a, id: uid() }
-    setSpace((prev) => ({ ...prev, anniversaries: [...prev.anniversaries, newA] }))
-  }, [])
+    if (apiMode) {
+      spaceApi.addAnniversary(a).then((result) => {
+        if (result.ok && result.data) {
+          setSpace((prev) => ({ ...prev, anniversaries: [...prev.anniversaries, result.data!] }))
+        }
+      })
+    } else {
+      const newA: Anniversary = { ...a, id: uid() }
+      setSpace((prev) => ({ ...prev, anniversaries: [...prev.anniversaries, newA] }))
+    }
+  }, [apiMode])
 
   const removeAnniversary = useCallback((id: string) => {
-    setSpace((prev) => ({
-      ...prev,
-      anniversaries: prev.anniversaries.filter((a) => a.id !== id),
-    }))
-  }, [])
+    if (apiMode) {
+      spaceApi.deleteAnniversary(id).then((result) => {
+        if (result.ok) {
+          setSpace((prev) => ({
+            ...prev,
+            anniversaries: prev.anniversaries.filter((a) => a.id !== id),
+          }))
+        }
+      })
+    } else {
+      setSpace((prev) => ({
+        ...prev,
+        anniversaries: prev.anniversaries.filter((a) => a.id !== id),
+      }))
+    }
+  }, [apiMode])
 
   const updateAnniversary = useCallback((id: string, patch: Partial<Omit<Anniversary, 'id'>>) => {
-    setSpace((prev) => ({
-      ...prev,
-      anniversaries: prev.anniversaries.map((a) =>
-        a.id === id ? { ...a, ...patch } : a
-      ),
-    }))
-  }, [])
+    if (apiMode) {
+      spaceApi.updateAnniversary(id, patch).then((result) => {
+        if (result.ok && result.data) {
+          setSpace((prev) => ({
+            ...prev,
+            anniversaries: prev.anniversaries.map((a) =>
+              a.id === id ? { ...a, ...patch } : a
+            ),
+          }))
+        }
+      })
+    } else {
+      setSpace((prev) => ({
+        ...prev,
+        anniversaries: prev.anniversaries.map((a) =>
+          a.id === id ? { ...a, ...patch } : a
+        ),
+      }))
+    }
+  }, [apiMode])
 
   // ---- Derived data ----
   const deferred = instances.filter((i) => i.status === 'deferred')
@@ -691,12 +969,209 @@ export function useStore(options?: { apiMode?: boolean }) {
   const relationDays = Math.max(1, Math.floor((Date.now() - space.createdAt) / 86_400_000))
   const todayAnniversaries = space.anniversaries.filter(isTodayAnniversary)
 
+  // Draft & feelings derived data
+  const getDraftItems = useCallback(
+    (userId: string) => {
+      return instances.filter((inst) => {
+        const tpl = templates.find((t) => t.id === inst.templateId)
+        return tpl && tpl.creatorId === userId && inst.relationStatus === 'draft'
+      })
+    },
+    [instances, templates]
+  )
+
+  const getFeelings = useCallback(
+    (userId: string, options?: { aboutPartner?: boolean; entryType?: FeelingEntry['entryType']; includeHidden?: boolean }) => {
+      return feelings.filter((f) => {
+        if (f.userId !== userId) return false
+        if (!options?.includeHidden && f.isHidden) return false
+        if (options?.aboutPartner) return !!f.aboutPartnerId
+        if (options?.entryType) return f.entryType === options.entryType
+        return true
+      })
+    },
+    [feelings]
+  )
+
+  const addComment = useCallback((entryId: string, content: string, author: 'user' | 'ai', userId?: string) => {
+    const newComment: Comment = { id: uid(), entryId, content, author, userId, createdAt: Date.now() }
+    setComments((prev) => [...prev, newComment])
+  }, [])
+
+  const getComments = useCallback((entryId: string) => {
+    return comments.filter((c) => c.entryId === entryId).sort((a, b) => a.createdAt - b.createdAt)
+  }, [comments])
+
+  const deleteFeeling = useCallback((feelingId: string) => {
+    setFeelings((prev) => prev.filter((f) => f.id !== feelingId))
+    setComments((prev) => prev.filter((c) => c.entryId !== feelingId))
+    showToast('已删除', 'info')
+  }, [showToast])
+
+  const toggleHideFeeling = useCallback((feelingId: string) => {
+    setFeelings((prev) =>
+      prev.map((f) => {
+        if (f.id !== feelingId) return f
+        const newHidden = !f.isHidden
+        return { ...f, isHidden: newHidden }
+      })
+    )
+    const entry = feelings.find((f) => f.id === feelingId)
+    showToast(entry?.isHidden ? '已取消隐藏' : '已隐藏', 'info')
+  }, [showToast, feelings])
+
+  const toggleHidePhoto = useCallback((feelingId: string, photoIndex: number) => {
+    setFeelings((prev) =>
+      prev.map((f) => {
+        if (f.id !== feelingId) return f
+        const indices = f.hiddenPhotoIndices ?? []
+        const isHidden = indices.includes(photoIndex)
+        const newIndices = isHidden
+          ? indices.filter((i) => i !== photoIndex)
+          : [...indices, photoIndex]
+        return { ...f, hiddenPhotoIndices: newIndices.length > 0 ? newIndices : undefined }
+      })
+    )
+    const entry = feelings.find((f) => f.id === feelingId)
+    const wasHidden = entry?.hiddenPhotoIndices?.includes(photoIndex)
+    showToast(wasHidden ? '已取消隐藏该照片' : '已隐藏该照片', 'info')
+  }, [showToast, feelings])
+
+  const updateFeeling = useCallback((feelingId: string, patch: Partial<Pick<FeelingEntry, 'content' | 'mood' | 'location' | 'photoUrls' | 'mediaTypes'>>) => {
+    setFeelings((prev) =>
+      prev.map((f) => {
+        if (f.id !== feelingId) return f
+        const updated = { ...f, ...patch }
+        if (patch.photoUrls !== undefined) {
+          updated.photoUrl = patch.photoUrls[0]
+        }
+        return updated
+      })
+    )
+    showToast('已更新', 'success')
+  }, [showToast])
+
+  // ---- Pet comment for feeling entry ----
+  const getPetComment = useCallback((feelingId: string): string | null => {
+    const feeling = feelings.find((f) => f.id === feelingId)
+    if (!feeling) return null
+    const companion = COMPANION_CHARACTERS[space.companion]
+    const isDual = space.relationType !== 'self'
+    const hasPhotos = !!(feeling.photoUrls && feeling.photoUrls.length > 0)
+    return generatePetComment(feeling.content, feeling.mood, hasPhotos, companion.name, companion.avatar, isDual)
+  }, [feelings, space.companion, space.relationType])
+
+  // ---- Narrative generation ----
+  const generateNarrativeEntry = useCallback(async (feelingIds?: string[]) => {
+    const userId = users[0].id
+    const targetFeelings = feelingIds
+      ? feelings.filter((f) => feelingIds.includes(f.id))
+      : feelings.filter((f) => f.userId === userId)
+    if (targetFeelings.length === 0) return null
+
+    const photoUrls = targetFeelings.flatMap((f) => f.photoUrls || [])
+    const companion = COMPANION_CHARACTERS[space.companion]
+    const isDual = space.relationType !== 'self'
+
+    // Try real AI API first, fall back to template
+    try {
+      const apiResult = await narrativeApi.generateNarrative({
+        scope: isDual ? 'relationship' : 'self',
+        taskIds: targetFeelings.map((f) => f.id),
+      })
+      if (apiResult.ok && apiResult.data) {
+        const entry: NarrativeEntry = {
+          id: apiResult.data.id,
+          userId,
+          title: apiResult.data.content.split('\n')[0] || '今天的故事',
+          bodyText: apiResult.data.content,
+          petSummary: `${companion.avatar} ${companion.name}："陪你们记录了这一天"`,
+          photoUrls: photoUrls.slice(0, 3),
+          feelingIds: targetFeelings.map((f) => f.id),
+          createdAt: Date.now(),
+        }
+        setNarratives((prev) => [...prev, entry])
+        return entry
+      }
+    } catch {
+      // Fall through to template generation
+    }
+
+    // Template fallback
+    const entry = generateDemoNarrativeEntry(
+      targetFeelings, photoUrls, companion.name, companion.avatar,
+      relationDays, isDual ? 'dual' : 'single', userId,
+    )
+    setNarratives((prev) => [...prev, entry])
+    return entry
+  }, [users, feelings, space.companion, space.relationType, relationDays])
+
+  const getNarrative = useCallback((id: string) => {
+    return narratives.find((n) => n.id === id) || null
+  }, [narratives])
+
+  const getNarratives = useCallback((userId: string) => {
+    return narratives.filter((n) => n.userId === userId).sort((a, b) => b.createdAt - a.createdAt)
+  }, [narratives])
+
+  // ---- Additional derived data ----
+  const todayFeelingCount = feelings.filter((f) => {
+    const d = new Date(f.createdAt)
+    const fDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    return fDate === todayStr
+  }).length
+
+  const recentPhotos = feelings
+    .filter((f) => f.photoUrls && f.photoUrls.length > 0)
+    .sort((a, b) => b.createdAt - a.createdAt)
+    .flatMap((f) => f.photoUrls || [])
+    .slice(0, 6)
+
+  // ---- Relay message methods ----
+  const sendRelay = useCallback((
+    senderId: string,
+    receiverId: string,
+    originalText: string,
+    selectedVersion: RelayVersionType,
+    relayText: string,
+  ) => {
+    const relay: RelayMessage = {
+      id: `relay-${Date.now()}-${uid()}`,
+      senderId,
+      receiverId,
+      originalText,
+      selectedVersion,
+      relayText,
+      status: 'sent',
+      createdAt: Date.now(),
+      readAt: null,
+    }
+    setRelayMessages(prev => [...prev, relay])
+    const senderName = users.find(u => u.id === senderId)?.name || '对方'
+    addNotification(receiverId, `${senderName} 通过小橘给你传了一句话~`, undefined)
+    showToast('小橘已经帮你传达了~', 'success')
+  }, [users])
+
+  const getUnreadRelays = useCallback((userId: string) => {
+    return relayMessages
+      .filter(m => m.receiverId === userId && m.status !== 'read')
+      .sort((a, b) => a.createdAt - b.createdAt)
+  }, [relayMessages])
+
+  const markRelayRead = useCallback((relayId: string) => {
+    setRelayMessages(prev => prev.map(m =>
+      m.id === relayId ? { ...m, status: 'read' as const, readAt: Date.now() } : m
+    ))
+  }, [])
+
   return {
     templates,
     instances,
     notifications,
     users,
     space,
+    feelings,
+    comments,
     deferred,
     awaiting,
     pending,
@@ -714,6 +1189,14 @@ export function useStore(options?: { apiMode?: boolean }) {
     getTemplate,
     getReceivedItems,
     getSentItems,
+    getDraftItems,
+    getFeelings,
+    getComments,
+    addComment,
+    deleteFeeling,
+    toggleHideFeeling,
+    toggleHidePhoto,
+    updateFeeling,
     getUserNotifications,
     getUserProfile,
     // Space actions
@@ -734,8 +1217,26 @@ export function useStore(options?: { apiMode?: boolean }) {
     respondWithFeedback,
     markSeen,
     createTask,
+    updateInstanceDate,
+    saveDraftTask,
+    promoteDraftToSent,
+    saveFeeling,
+    convertFeelingToTask,
     dismissNotification,
     addNotification,
+    // Narrative & pet comment
+    narratives,
+    todayFeelingCount,
+    recentPhotos,
+    getPetComment,
+    generateNarrativeEntry,
+    getNarrative,
+    getNarratives,
+    // Relay messages
+    relayMessages,
+    sendRelay,
+    getUnreadRelays,
+    markRelayRead,
   }
 }
 

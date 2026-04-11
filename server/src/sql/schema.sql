@@ -172,3 +172,18 @@ CREATE TABLE IF NOT EXISTS narratives (
 
 CREATE INDEX IF NOT EXISTS idx_narratives_user ON narratives(user_id);
 CREATE INDEX IF NOT EXISTS idx_narratives_scope ON narratives(scope, user_id);
+
+-- ===== FEELINGS (Personal emotion/mood recording) =====
+CREATE TABLE IF NOT EXISTS feelings (
+    id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id             UUID NOT NULL REFERENCES users(id),
+    content             TEXT NOT NULL,
+    mood_tag            VARCHAR(10) NOT NULL,
+    about_partner_id    UUID REFERENCES users(id) ON DELETE SET NULL,
+    photo_url           VARCHAR(500),
+    is_sent             BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_feelings_user ON feelings(user_id);
+CREATE INDEX IF NOT EXISTS idx_feelings_partner ON feelings(about_partner_id);

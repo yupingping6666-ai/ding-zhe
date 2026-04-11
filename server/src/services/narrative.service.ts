@@ -43,10 +43,8 @@ async function fetchRelationshipContext(userId: string) {
 
   // Recent anniversaries
   const anniversaryResult = await pool.query(
-    `SELECT name, date FROM anniversaries
-     WHERE space_id = (SELECT id FROM relationship_spaces WHERE user_id_1 = $1 OR user_id_2 = $1 LIMIT 1)
-     AND EXTRACT(MONTH FROM date) = EXTRACT(MONTH FROM CURRENT_DATE)
-     AND EXTRACT(DAY FROM date) = EXTRACT(DAY FROM CURRENT_DATE)`,
+    `SELECT title, date_mm_dd FROM anniversaries
+     WHERE space_id = (SELECT id FROM relationship_spaces WHERE user_id_1 = $1 OR user_id_2 = $1 LIMIT 1)`,
     [userId]
   )
 
@@ -83,12 +81,12 @@ function buildNarrativePrompt(ctx: {
   stats: Record<string, number>
   relationDays: number
   relationType: string | null
-  todayAnniversaries: Array<{ name: string; date: string }>
+  todayAnniversaries: Array<{ title: string; date_mm_dd: string }>
   pet: { mood: string; energy: number } | null
 }): string {
   const anniversaryText =
     ctx.todayAnniversaries.length > 0
-      ? `今天是个特别的日子：${ctx.todayAnniversaries.map((a) => a.name).join('、')}。`
+      ? `今天是个特别的日子：${ctx.todayAnniversaries.map((a) => a.title).join('、')}。`
       : ''
 
   const relationText =

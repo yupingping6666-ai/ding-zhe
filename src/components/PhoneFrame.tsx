@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Store } from '@/store'
 import { useCurrentUser } from '@/contexts/UserContext'
+import { useApi } from '@/contexts/ApiContext'
 import { COMPANION_CHARACTERS } from '@/lib/companion'
 import { HomePage } from '@/pages/HomePage'
 import { CreatePage } from '@/pages/CreatePage'
@@ -9,12 +10,18 @@ import { DetailPage } from '@/pages/DetailPage'
 import { RecordsPage } from '@/pages/RecordsPage'
 import { OnboardingPage } from '@/pages/OnboardingPage'
 import { RelationshipPage } from '@/pages/RelationshipPage'
+import { MyPage } from '@/pages/MyPage'
 import { ReminderOverlay } from '@/components/ReminderOverlay'
 import { CreateChooser } from '@/components/CreateChooser'
 import { Toast } from '@/components/Toast'
-import { Home, PlusCircle, BarChart3, Heart } from 'lucide-react'
+import { Home, Plus, Share2, LayoutGrid, Users } from 'lucide-react'
+import { PhotoWallPage } from '@/pages/PhotoWallPage'
+import { FeelingDetailPage } from '@/pages/FeelingDetailPage'
+import { NarrativePage } from '@/pages/NarrativePage'
+import { PetPage } from '@/pages/PetPage'
+import CompletionPrompt from '@/components/CompletionPrompt'
 
-type Page = 'home' | 'create' | 'voice' | 'records' | 'detail' | 'relationship'
+type Page = 'home' | 'create' | 'voice' | 'records' | 'detail' | 'relationship' | 'my' | 'photowall' | 'feeling-detail' | 'narrative' | 'pet'
 
 interface PhoneFrameProps {
   store: Store
@@ -23,16 +30,35 @@ interface PhoneFrameProps {
 export function PhoneFrame({ store }: PhoneFrameProps) {
   const currentUserId = useCurrentUser()
   const user = store.getUserProfile(currentUserId)
+  const { user: apiUser } = useApi()
+  const userMode = (apiUser?.mode || (user as any).mode || 'dual') as 'single' | 'dual'
   const character = COMPANION_CHARACTERS[store.space.companion]
 
   const [page, setPage] = useState<Page>('home')
   const [detailTemplateId, setDetailTemplateId] = useState<string | null>(null)
   const [reminderInstanceId, setReminderInstanceId] = useState<string | null>(null)
   const [showChooser, setShowChooser] = useState(false)
+  const [createPreset, setCreatePreset] = useState<string | null>(null)
+  const [feelingDetailId, setFeelingDetailId] = useState<string | null>(null)
+  const [previousPage, setPreviousPage] = useState<Page>('home')
+  const [narrativeId, setNarrativeId] = useState<string | null>(null)
+  const [showCompletionPrompt, setShowCompletionPrompt] = useState(false)
 
   function openDetail(templateId: string) {
     setDetailTemplateId(templateId)
     setPage('detail')
+  }
+
+  function openFeelingDetail(feelingId: string) {
+    setPreviousPage(page)
+    setFeelingDetailId(feelingId)
+    setPage('feeling-detail')
+  }
+
+  function openNarrative(id: string) {
+    setNarrativeId(id)
+    setPreviousPage(page)
+    setPage('narrative')
   }
 
   function triggerReminder(instanceId: string) {
@@ -41,16 +67,6 @@ export function PhoneFrame({ store }: PhoneFrameProps) {
 
   function handlePlusClick() {
     setShowChooser(true)
-  }
-
-  function handleChooserVoice() {
-    setShowChooser(false)
-    setPage('voice')
-  }
-
-  function handleChooserManual() {
-    setShowChooser(false)
-    setPage('create')
   }
 
   const reminderInstance = reminderInstanceId
@@ -94,17 +110,36 @@ export function PhoneFrame({ store }: PhoneFrameProps) {
       </div>
 
       {/* Page content */}
-      <div className="flex-1 overflow-y-auto scrollbar-hide">
+      <div className={`flex-1 min-h-0 ${(page === 'pet' || page === 'my') ? 'overflow-hidden flex flex-col' : 'overflow-y-auto scrollbar-hide'}`}>
         {page === 'home' && (
           <HomePage
             store={store}
             onOpenDetail={openDetail}
+            onOpenFeelingDetail={openFeelingDetail}
             onTriggerReminder={triggerReminder}
             onVoiceCreate={() => setPage('voice')}
+            onOpenPetPanel={() => setPage('pet')}
+            onOpenCreate={() => { setCreatePreset('photo-journal'); setPage('create') }}
+          />
+        )}
+        {page === 'pet' && (
+          <PetPage
+            store={store}
+            onTodayStory={async () => {
+              const entry = await store.generateNarrativeEntry()
+              if (entry) openNarrative(entry.id)
+            }}
+            onFeelingCreate={() => { setCreatePreset('mood-capture'); setPage('create') }}
+            onBack={() => setPage('home')}
           />
         )}
         {page === 'create' && (
-          <CreatePage store={store} onBack={() => setPage('home')} />
+          <CreatePage
+            store={store}
+            userMode={userMode}
+            createPreset={createPreset}
+            onBack={() => { setCreatePreset(null); setPage('home') }}
+          />
         )}
         {page === 'voice' && (
           <VoiceCreatePage store={store} onBack={() => setPage('home')} />
@@ -122,14 +157,47 @@ export function PhoneFrame({ store }: PhoneFrameProps) {
         {page === 'relationship' && (
           <RelationshipPage store={store} onBack={() => setPage('home')} />
         )}
+        {page === 'my' && (
+          <MyPage
+            store={store}
+            userMode={userMode}
+            onOpenDetail={openDetail}
+            onOpenFeelingDetail={openFeelingDetail}
+          />
+        )}
+        {page === 'photowall' && (
+          <PhotoWallPage
+            store={store}
+            userMode={userMode}
+            currentUserId={currentUserId}
+            onBack={() => setPage('home')}
+            onOpenFeelingDetail={openFeelingDetail}
+          />
+        )}
+        {page === 'feeling-detail' && feelingDetailId && (
+          <FeelingDetailPage
+            store={store}
+            feelingId={feelingDetailId}
+            currentUserId={currentUserId}
+            onBack={() => { setFeelingDetailId(null); setPage(previousPage) }}
+            onOpenNarrative={openNarrative}
+          />
+        )}
+        {page === 'narrative' && narrativeId && (
+          <NarrativePage
+            store={store}
+            narrativeId={narrativeId}
+            onBack={() => { setNarrativeId(null); setPage(previousPage) }}
+          />
+        )}
       </div>
 
-      {/* Tab bar — 4 tabs */}
+      {/* Tab bar — 首页 | 纪念 | + | 小橘 | 用户中心 */}
       <div className="border-t bg-card/80 backdrop-blur-lg safe-bottom">
         <div className="flex items-center justify-around py-2 pb-3">
           <button
             onClick={() => setPage('home')}
-            className={`flex flex-col items-center gap-0.5 px-3 py-1 transition-colors ${
+            className={`flex flex-col items-center gap-0.5 px-2 py-1 transition-colors ${
               page === 'home' ? 'text-primary' : 'text-muted-foreground'
             }`}
           >
@@ -137,34 +205,42 @@ export function PhoneFrame({ store }: PhoneFrameProps) {
             <span className="text-2xs font-medium">首页</span>
           </button>
           <button
+            onClick={() => setPage('photowall')}
+            className={`flex flex-col items-center gap-0.5 px-2 py-1 transition-colors ${
+              page === 'photowall' ? 'text-primary' : 'text-muted-foreground'
+            }`}
+          >
+            <Share2 className="w-5 h-5" />
+            <span className="text-2xs font-medium">纪念</span>
+          </button>
+          <button
             onClick={handlePlusClick}
-            className="flex flex-col items-center gap-0.5 px-3 py-1 text-primary"
+            className="flex flex-col items-center gap-0.5 px-2 py-1"
           >
-            <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center -mt-4 shadow-lg">
-              <PlusCircle className="w-5 h-5 text-primary-foreground" />
+            <div className="w-11 h-11 rounded-full flex items-center justify-center -mt-5 shadow-float" style={{ background: 'linear-gradient(180deg, hsl(14 80% 78%), hsl(14 90% 65%))' }}>
+              <Plus className="w-5 h-5 text-white" />
             </div>
-            <span className="text-2xs font-medium">新建</span>
           </button>
           <button
-            onClick={() => setPage('relationship')}
-            className={`flex flex-col items-center gap-0.5 px-3 py-1 transition-colors relative ${
-              page === 'relationship' ? 'text-primary' : 'text-muted-foreground'
+            onClick={() => setPage('pet')}
+            className={`flex flex-col items-center gap-0.5 px-2 py-1 transition-colors ${
+              page === 'pet' ? 'text-primary' : 'text-muted-foreground'
             }`}
           >
-            <Heart className="w-5 h-5" />
-            <span className="text-2xs font-medium">我们</span>
+            <LayoutGrid className="w-5 h-5" />
+            <span className="text-2xs font-medium">小橘</span>
+          </button>
+          <button
+            onClick={() => userMode === 'single' ? setPage('my') : setPage('relationship')}
+            className={`flex flex-col items-center gap-0.5 px-2 py-1 transition-colors relative ${
+              page === 'my' || page === 'relationship' ? 'text-primary' : 'text-muted-foreground'
+            }`}
+          >
+            <Users className="w-5 h-5" />
+            <span className="text-2xs font-medium">{userMode === 'dual' ? '我们' : '我的'}</span>
             {store.todayAnniversaries.length > 0 && (
-              <div className="absolute top-0 right-1.5 w-2 h-2 bg-[hsl(var(--anniversary))] rounded-full animate-pulse-soft" />
+              <div className="absolute top-0 right-0.5 w-2 h-2 bg-[hsl(var(--anniversary))] rounded-full animate-pulse-soft" />
             )}
-          </button>
-          <button
-            onClick={() => setPage('records')}
-            className={`flex flex-col items-center gap-0.5 px-3 py-1 transition-colors ${
-              page === 'records' ? 'text-primary' : 'text-muted-foreground'
-            }`}
-          >
-            <BarChart3 className="w-5 h-5" />
-            <span className="text-2xs font-medium">记录</span>
           </button>
         </div>
       </div>
@@ -172,8 +248,20 @@ export function PhoneFrame({ store }: PhoneFrameProps) {
       {/* Create chooser overlay */}
       {showChooser && (
         <CreateChooser
-          onVoice={handleChooserVoice}
-          onManual={handleChooserManual}
+          userMode={userMode}
+          onSelectType={(type) => {
+            setShowChooser(false)
+            if (type === 'voice') {
+              setPage('voice')
+            } else if (type === 'manual') {
+              setPage('create')
+              setCreatePreset(null)
+            } else {
+              // Single-mode types: text-journal, mood-capture, photo-journal
+              setCreatePreset(type)
+              setPage('create')
+            }
+          }}
           onClose={() => setShowChooser(false)}
         />
       )}
@@ -190,6 +278,14 @@ export function PhoneFrame({ store }: PhoneFrameProps) {
           onCantDo={store.cantDoInstance}
           onFeedback={store.respondWithFeedback}
           onClose={() => setReminderInstanceId(null)}
+        />
+      )}
+
+      {/* Completion prompt overlay */}
+      {showCompletionPrompt && (
+        <CompletionPrompt
+          onPhoto={() => { setShowCompletionPrompt(false); setPage('create'); setCreatePreset('photo-journal') }}
+          onDismiss={() => setShowCompletionPrompt(false)}
         />
       )}
 

@@ -9,7 +9,9 @@ import userRouter from './routes/user.js'
 import taskRouter from './routes/task.js'
 import photoRouter from './routes/photo.js'
 import narrativeRouter from './routes/narrative.js'
+import petChatRouter from './routes/pet-chat.js'
 import relationRouter from './routes/relation.js'
+import spaceRouter, { anniversaryRouter } from './routes/space.js'
 
 const app = express()
 
@@ -32,7 +34,10 @@ app.use('/api/user', userRouter)
 app.use('/api/task', taskRouter)
 app.use('/api/photo', photoRouter)
 app.use('/api/narrative', narrativeRouter)
+app.use('/api/pet-chat', petChatRouter)
 app.use('/api/relation', relationRouter)
+app.use('/api/space', spaceRouter)
+app.use('/api/anniversaries', anniversaryRouter)
 
 // Error handler
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

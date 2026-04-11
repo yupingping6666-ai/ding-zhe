@@ -22,10 +22,16 @@ export function formatTime(ts: number): string {
 /** Format a date as relative label */
 export function formatDateLabel(ts: number): string {
   const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
   const d = new Date(ts)
-  const diffDays = Math.floor((now.setHours(0,0,0,0) - new Date(d).setHours(0,0,0,0)) / 86400000)
+  const target = new Date(d.getFullYear(), d.getMonth(), d.getDate())
+  const diffDays = Math.floor((target.getTime() - today.getTime()) / 86400000)
+
   if (diffDays === 0) return '今天'
-  if (diffDays === 1) return '昨天'
-  if (diffDays === 2) return '前天'
-  return `${diffDays} 天前`
+  if (diffDays === 1) return '明天'
+  if (diffDays === 2) return '后天'
+  if (diffDays === -1) return '昨天'
+  if (diffDays === -2) return '前天'
+  if (diffDays > 0) return `${diffDays} 天后`
+  return `${Math.abs(diffDays)} 天前`
 }

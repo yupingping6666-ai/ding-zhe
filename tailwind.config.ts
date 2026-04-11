@@ -174,6 +174,48 @@ const config: Config = {
           "0%, 100%": { opacity: "0.3" },
           "50%": { opacity: "1" },
         },
+        "pet-breathe": {
+          "0%, 100%": { transform: "scale(1)" },
+          "50%": { transform: "scale(1.03)" },
+        },
+        "food-fall": {
+          "0%": { transform: "translateY(-30px)", opacity: "0" },
+          "100%": { transform: "translateY(0)", opacity: "1" },
+        },
+        "text-float-fade": {
+          "0%": { transform: "translateY(0)", opacity: "1" },
+          "100%": { transform: "translateY(-25px)", opacity: "0" },
+        },
+        "completion-pop": {
+          "0%": { transform: "scale(0.8)", opacity: "0" },
+          "50%": { transform: "scale(1.05)", opacity: "1" },
+          "100%": { transform: "scale(1)", opacity: "1" },
+        },
+        "narrative-reveal": {
+          "0%": { opacity: "0", transform: "translateY(12px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+        "tail-sway": {
+          "0%, 100%": { transform: "rotate(-5deg)" },
+          "50%": { transform: "rotate(5deg)" },
+        },
+        "tail-wag": {
+          "0%, 100%": { transform: "rotate(-15deg)" },
+          "50%": { transform: "rotate(15deg)" },
+        },
+        "typing-dot": {
+          "0%, 60%, 100%": { transform: "translateY(0)", opacity: "0.4" },
+          "30%": { transform: "translateY(-4px)", opacity: "1" },
+        },
+        "msg-appear": {
+          "0%": { opacity: "0", transform: "translateY(8px) scale(0.97)" },
+          "100%": { opacity: "1", transform: "translateY(0) scale(1)" },
+        },
+        "shake": {
+          "0%, 100%": { transform: "translateX(0)" },
+          "20%, 60%": { transform: "translateX(-6px)" },
+          "40%, 80%": { transform: "translateX(6px)" },
+        },
       },
       animation: {
         "slide-up": "slide-up 0.35s cubic-bezier(0.16, 1, 0.3, 1)",
@@ -190,6 +232,16 @@ const config: Config = {
         "heart-pop": "heart-pop 0.6s ease-out forwards",
         "nest-glow": "nest-glow 3s ease-in-out infinite",
         "shimmer": "shimmer 2s ease-in-out infinite",
+        "pet-breathe": "pet-breathe 3s ease-in-out infinite",
+        "food-fall": "food-fall 0.6s ease-out",
+        "text-float-fade": "text-float-fade 2s ease-out forwards",
+        "completion-pop": "completion-pop 0.4s cubic-bezier(0.16, 1, 0.3, 1)",
+        "narrative-reveal": "narrative-reveal 0.6s ease-out forwards",
+        "tail-sway": "tail-sway 2s ease-in-out infinite",
+        "tail-wag": "tail-wag 0.4s ease-in-out infinite",
+        "typing-dot": "typing-dot 1.2s ease-in-out infinite",
+        "msg-appear": "msg-appear 0.25s ease-out",
+        "shake": "shake 0.4s ease-in-out",
       },
       boxShadow: {
         "card-default": "var(--shadow-card)",

@@ -487,6 +487,20 @@ export function applySmartDefaults(parsed: ParsedTask): CreateTaskInput {
     remindTime = `${String(nextHour).padStart(2, '0')}:00`
   }
 
+  // Calculate date offset from dateContext
+  let scheduledDateOffset: number | null = 0 // default to today
+  let specificDate: string | null = null
+
+  if (parsed.dateContext === 'tomorrow') {
+    scheduledDateOffset = 1
+  } else if (parsed.dateContext === 'day-after') {
+    scheduledDateOffset = 2
+  } else if (parsed.dateContext === 'specific' && parsed.specificDate) {
+    specificDate = parsed.specificDate
+    scheduledDateOffset = null
+  }
+  // 'today' or null → offset = 0
+
   // Repeat: if specific date → once, otherwise → daily
   let repeatRule = parsed.repeatRule
   if (!repeatRule) {
@@ -507,6 +521,8 @@ export function applySmartDefaults(parsed: ParsedTask): CreateTaskInput {
     weeklyDays,
     followUpIntensity: 'standard',
     itemType: 'todo',
+    scheduledDateOffset,
+    specificDate,
     creatorId: '',   // will be set from UI context
     receiverId: '',  // will be set from UI context
     note: '',
