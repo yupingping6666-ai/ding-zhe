@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { getTimeGreeting, getTimeOfDay } from '@/lib/time-of-day'
 import { AnniversarySection } from '@/components/anniversary/AnniversarySection'
 import { AiInsightCard } from '@/components/AiInsightCard'
+import { UserAvatar } from '@/components/UserAvatar'
 import { TaskCard } from '@/components/TaskCard'
 import { COMPANION_CHARACTERS } from '@/lib/companion'
 import { useCurrentUser } from '@/contexts/UserContext'
@@ -15,11 +16,12 @@ interface MyPageProps {
   userMode: 'single' | 'dual'
   onOpenDetail?: (templateId: string) => void
   onOpenFeelingDetail?: (feelingId: string) => void
+  onEditProfile?: (userId: string) => void
 }
 
 type MyTab = 'status' | 'records' | 'todo'
 
-export function MyPage({ store, userMode: _userMode, onOpenDetail, onOpenFeelingDetail }: MyPageProps) {
+export function MyPage({ store, userMode, onOpenDetail, onOpenFeelingDetail, onEditProfile }: MyPageProps) {
   const currentUserId = useCurrentUser()
   const { logout } = useApi()
   const user = store.getUserProfile(currentUserId)
@@ -54,13 +56,24 @@ export function MyPage({ store, userMode: _userMode, onOpenDetail, onOpenFeeling
       {/* Sticky Header + Tabs */}
       <div className="shrink-0">
         {/* Header */}
-        <div className="px-5 pt-6 pb-2">
-          <h1 className="text-xl font-bold text-foreground">
-            {tab === 'status' ? (userMode === 'dual' ? '我们的状态' : '我的状态') : tab === 'records' ? (userMode === 'dual' ? '我们记录的' : '我记录的') : '待办'}
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            {user.name}，{greeting}~
-          </p>
+        <div className="px-5 pt-6 pb-2 flex items-start justify-between">
+          <div>
+            <h1 className="text-xl font-bold text-foreground">
+              {tab === 'status' ? (userMode === 'dual' ? '我们的状态' : '我的状态') : tab === 'records' ? (userMode === 'dual' ? '我们记录的' : '我记录的') : '待办'}
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              {user.name}，{greeting}~
+            </p>
+          </div>
+          <button
+            onClick={() => onEditProfile?.(currentUserId)}
+            className="w-10 h-10 rounded-full bg-card flex items-center justify-center text-lg shadow-sm border border-border/30 hover:border-primary/40 transition-all active:scale-95 relative shrink-0 mt-0.5 overflow-hidden"
+          >
+            <UserAvatar avatar={user.avatar} />
+            <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-primary/80 flex items-center justify-center">
+              <span className="text-[8px] text-white">✏️</span>
+            </div>
+          </button>
         </div>
 
         {/* Tab Bar */}

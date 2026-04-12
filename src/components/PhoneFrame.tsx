@@ -1,7 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { Store } from '@/store'
 import { useCurrentUser } from '@/contexts/UserContext'
-import { useApi } from '@/contexts/ApiContext'
 import { COMPANION_CHARACTERS } from '@/lib/companion'
 import { HomePage } from '@/pages/HomePage'
 import { CreatePage } from '@/pages/CreatePage'
@@ -19,19 +18,19 @@ import { PhotoWallPage } from '@/pages/PhotoWallPage'
 import { FeelingDetailPage } from '@/pages/FeelingDetailPage'
 import { NarrativePage } from '@/pages/NarrativePage'
 import { PetPage } from '@/pages/PetPage'
+import { ProfileEditPage } from '@/pages/ProfileEditPage'
 import CompletionPrompt from '@/components/CompletionPrompt'
 
-type Page = 'home' | 'create' | 'voice' | 'records' | 'detail' | 'relationship' | 'my' | 'photowall' | 'feeling-detail' | 'narrative' | 'pet'
+type Page = 'home' | 'create' | 'voice' | 'records' | 'detail' | 'relationship' | 'my' | 'photowall' | 'feeling-detail' | 'narrative' | 'pet' | 'profile-edit'
 
 interface PhoneFrameProps {
   store: Store
+  userMode: 'single' | 'dual'
 }
 
-export function PhoneFrame({ store }: PhoneFrameProps) {
+export function PhoneFrame({ store, userMode }: PhoneFrameProps) {
   const currentUserId = useCurrentUser()
   const user = store.getUserProfile(currentUserId)
-  const { user: apiUser } = useApi()
-  const userMode = (apiUser?.mode || (user as any).mode || 'dual') as 'single' | 'dual'
   const character = COMPANION_CHARACTERS[store.space.companion]
 
   const [page, setPage] = useState<Page>('home')
@@ -43,6 +42,15 @@ export function PhoneFrame({ store }: PhoneFrameProps) {
   const [previousPage, setPreviousPage] = useState<Page>('home')
   const [narrativeId, setNarrativeId] = useState<string | null>(null)
   const [showCompletionPrompt, setShowCompletionPrompt] = useState(false)
+  const [editingUserId, setEditingUserId] = useState<string | null>(null)
+
+  // When relationship is dissolved (mode switches from dual → single),
+  // redirect away from the relationship page
+  useEffect(() => {
+    if (userMode === 'single' && page === 'relationship') {
+      setPage('my')
+    }
+  }, [userMode, page])
 
   function openDetail(templateId: string) {
     setDetailTemplateId(templateId)
@@ -59,6 +67,12 @@ export function PhoneFrame({ store }: PhoneFrameProps) {
     setNarrativeId(id)
     setPreviousPage(page)
     setPage('narrative')
+  }
+
+  function openProfileEdit(userId: string) {
+    setPreviousPage(page)
+    setEditingUserId(userId)
+    setPage('profile-edit')
   }
 
   function triggerReminder(instanceId: string) {
@@ -155,7 +169,7 @@ export function PhoneFrame({ store }: PhoneFrameProps) {
           <RecordsPage store={store} onBack={() => setPage('home')} />
         )}
         {page === 'relationship' && (
-          <RelationshipPage store={store} onBack={() => setPage('home')} />
+          <RelationshipPage store={store} onBack={() => setPage('home')} onEditProfile={openProfileEdit} />
         )}
         {page === 'my' && (
           <MyPage
@@ -163,6 +177,14 @@ export function PhoneFrame({ store }: PhoneFrameProps) {
             userMode={userMode}
             onOpenDetail={openDetail}
             onOpenFeelingDetail={openFeelingDetail}
+            onEditProfile={openProfileEdit}
+          />
+        )}
+        {page === 'profile-edit' && editingUserId && (
+          <ProfileEditPage
+            store={store}
+            userId={editingUserId}
+            onBack={() => { setEditingUserId(null); setPage(previousPage) }}
           />
         )}
         {page === 'photowall' && (

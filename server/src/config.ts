@@ -33,4 +33,10 @@ export const config = {
     model: process.env.DASHSCOPE_MODEL || 'qwen-plus',
     baseUrl: process.env.DASHSCOPE_BASE_URL || 'https://dashscope.aliyuncs.com/compatible-mode/v1',
   },
+
+  qweather: {
+    apiKey: process.env.QWEATHER_API_KEY || '',
+    baseUrl: process.env.QWEATHER_BASE_URL || 'https://devapi.qweather.com',
+    defaultCity: process.env.QWEATHER_DEFAULT_CITY || '北京',
+  },
 }

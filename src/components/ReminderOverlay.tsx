@@ -4,6 +4,7 @@ import { ITEM_TYPE_CONFIG } from '@/types'
 import { formatDelay, formatTime } from '@/lib/time'
 import type { TaskInstance, TaskTemplate } from '@/types'
 import { getUser } from '@/store'
+import { UserAvatar } from '@/components/UserAvatar'
 import { useCurrentUser } from '@/contexts/UserContext'
 import { COMPANION_CHARACTERS } from '@/lib/companion'
 import type { Store } from '@/store'
@@ -78,7 +79,7 @@ export function ReminderOverlay({ instance, template, store, onComplete, onDefer
             </span>
             {sender && (
               <p className="text-sm text-muted-foreground mt-2">
-                {sender.avatar} {sender.name}{typeConf.senderVerb}
+                <span className="w-4 h-4 rounded-full overflow-hidden inline-flex items-center justify-center align-middle"><UserAvatar avatar={sender.avatar} imgClass="w-4 h-4" /></span> {sender.name}{typeConf.senderVerb}
               </p>
             )}
             {isFollowUp ? (

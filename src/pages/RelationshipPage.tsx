@@ -2,40 +2,45 @@ import { useState } from 'react'
 import type { Store } from '@/store'
 import { useCurrentUser } from '@/contexts/UserContext'
 import {
-  COMPANION_CHARACTERS,
   COMPANION_LIST,
   RELATION_TYPES,
 } from '@/lib/companion'
-import type { CompanionAnimal, RelationType } from '@/lib/companion'
+import type { RelationType } from '@/lib/companion'
 import { getRelationDurationText, humanizeStats } from '@/lib/narrative'
-import { FullSpaceScene } from '@/components/space/FullSpaceScene'
 import { AnniversarySection } from '@/components/anniversary/AnniversarySection'
+import { UserAvatar } from '@/components/UserAvatar'
 import { ArrowLeft, ChevronDown } from 'lucide-react'
+import standingCatImg from '@/assets/pets/cat/standing.png'
 
 interface Props {
   store: Store
   onBack: () => void
+  onEditProfile?: (userId: string) => void
 }
 
-export function RelationshipPage({ store, onBack }: Props) {
+export function RelationshipPage({ store, onBack, onEditProfile }: Props) {
   const currentUserId = useCurrentUser()
   const user = store.getUserProfile(currentUserId)
   const partner = store.getUserProfile(user.partnerId)
-  const character = COMPANION_CHARACTERS[store.space.companion]
   const relation = RELATION_TYPES[store.space.relationType]
   const [showRelationPicker, setShowRelationPicker] = useState(false)
+  const [showDissolveConfirm, setShowDissolveConfirm] = useState(false)
+  const [dissolving, setDissolving] = useState(false)
 
   const completedCount = store.instances.filter(i => i.status === 'completed').length
   const careCount = store.templates.filter(t => t.itemType === 'care').length
   const stats = humanizeStats({ total: store.instances.length, completed: completedCount, careCount })
 
-  function handleChangeCompanion(animal: CompanionAnimal) {
-    store.updateSpaceCompanion(animal)
-  }
-
   function handleChangeRelation(type: RelationType) {
     store.updateSpaceRelationType(type)
     setShowRelationPicker(false)
+  }
+
+  async function handleDissolve() {
+    setDissolving(true)
+    await store.dissolveRelationship()
+    setDissolving(false)
+    setShowDissolveConfirm(false)
   }
 
   return (
@@ -49,29 +54,36 @@ export function RelationshipPage({ store, onBack }: Props) {
       </div>
 
       <div className="px-5 space-y-5">
-        {/* Full space scene — pet protagonist */}
-        <FullSpaceScene
-          character={character}
-          petState={store.currentPetState}
-          todayCompleted={store.todayCompletedCount}
-          todayTotal={store.todayTotalCount}
-          todayCareCount={store.todayCareCount}
-          relationDays={store.relationDays}
-          todayAnniversaries={store.todayAnniversaries}
-          onInteract={store.petInteraction}
-        />
+        {/* Hero — static cat + together info */}
+        <div className="flex flex-col items-center py-6 bg-gradient-to-b from-primary/5 to-transparent rounded-3xl">
+          <img
+            src={standingCatImg}
+            alt="小橘"
+            className="w-32 h-32 object-contain select-none pointer-events-none"
+            draggable={false}
+          />
 
-        {/* Relationship info — avatars + duration */}
-        <div className="flex items-center justify-center gap-3 py-2">
-          <div className="w-10 h-10 rounded-full bg-card flex items-center justify-center text-lg shadow-sm">
-            {user.avatar}
-          </div>
-          <div className="text-center">
-            <p className="text-xs font-semibold text-primary">{relation.emoji} {relation.label}</p>
-            <p className="text-2xs text-muted-foreground">{getRelationDurationText(store.relationDays)}</p>
-          </div>
-          <div className="w-10 h-10 rounded-full bg-card flex items-center justify-center text-lg shadow-sm">
-            {partner.avatar}
+          {/* Enlarged together info */}
+          <div className="mt-4 flex items-center gap-4">
+            <button
+              onClick={() => onEditProfile?.(currentUserId)}
+              className="w-12 h-12 rounded-full bg-card flex items-center justify-center text-xl shadow-sm border border-border/30 hover:border-primary/40 transition-all active:scale-95 relative overflow-hidden"
+            >
+              <UserAvatar avatar={user.avatar} />
+              <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-primary/80 flex items-center justify-center">
+                <span className="text-[8px] text-white">✏️</span>
+              </div>
+            </button>
+            <div className="text-center">
+              <p className="text-sm font-bold text-primary">{relation.emoji} {relation.label}</p>
+              <p className="text-2xl font-extrabold text-foreground mt-1">
+                {store.relationDays} <span className="text-base font-bold">天</span>
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">{getRelationDurationText(store.relationDays)}</p>
+            </div>
+            <div className="w-12 h-12 rounded-full bg-card flex items-center justify-center text-xl shadow-sm border border-border/30 overflow-hidden">
+              <UserAvatar avatar={partner.avatar} />
+            </div>
           </div>
         </div>
 
@@ -89,34 +101,61 @@ export function RelationshipPage({ store, onBack }: Props) {
           onRemove={store.removeAnniversary}
         />
 
-        {/* Shared companion */}
+        {/* Shared companion — cat active, others greyed out */}
         <div className="bg-card rounded-3xl border border-border/40 p-5">
           <h3 className="text-sm font-bold text-foreground mb-1">我们的陪伴角色</h3>
           <p className="text-xs text-muted-foreground mb-4">选一个你们都喜欢的小动物~</p>
           <div className="grid grid-cols-4 gap-2">
-            {COMPANION_LIST.map((c) => (
-              <button
-                key={c.id}
-                onClick={() => handleChangeCompanion(c.id)}
-                className={`flex flex-col items-center gap-1 p-2.5 rounded-2xl border-2 transition-all active:scale-95 ${
-                  store.space.companion === c.id
-                    ? 'border-primary bg-primary/5'
-                    : 'border-transparent bg-secondary/50 hover:bg-accent/30'
-                }`}
-              >
-                <span className="text-2xl">{c.avatar}</span>
-                <span className={`text-2xs font-semibold ${
-                  store.space.companion === c.id ? 'text-primary' : 'text-muted-foreground'
-                }`}>
-                  {c.name}
-                </span>
-              </button>
-            ))}
+            {COMPANION_LIST.map((c) => {
+              const isCat = c.id === 'cat'
+              return (
+                <div
+                  key={c.id}
+                  className={`flex flex-col items-center gap-1 p-2.5 rounded-2xl border-2 transition-all ${
+                    isCat
+                      ? 'border-primary bg-primary/5'
+                      : 'border-transparent bg-secondary/30 opacity-40 cursor-not-allowed'
+                  }`}
+                >
+                  {isCat ? (
+                    <img
+                      src={standingCatImg}
+                      alt="小橘"
+                      className="w-8 h-8 object-contain"
+                      draggable={false}
+                    />
+                  ) : (
+                    <span className="text-2xl grayscale">{c.avatar}</span>
+                  )}
+                  <span className={`text-2xs font-semibold ${
+                    isCat ? 'text-primary' : 'text-muted-foreground/50'
+                  }`}>
+                    {c.name}
+                  </span>
+                  {!isCat && (
+                    <span className="text-[9px] text-muted-foreground/40 -mt-0.5">即将开放</span>
+                  )}
+                </div>
+              )
+            })}
           </div>
         </div>
 
         {/* Relationship settings */}
         <div className="bg-card rounded-3xl border border-border/40 overflow-hidden">
+          {/* 编辑个人资料 */}
+          <button
+            onClick={() => onEditProfile?.(currentUserId)}
+            className="w-full px-5 py-4 text-sm text-left text-foreground hover:bg-accent/30 transition-colors flex items-center justify-between"
+          >
+            <span>编辑个人资料</span>
+            <div className="flex items-center gap-2">
+              <span className="w-5 h-5 rounded-full overflow-hidden inline-flex items-center justify-center text-base"><UserAvatar avatar={user.avatar} imgClass="w-5 h-5" /></span>
+              <span className="text-muted-foreground text-xs">{user.name}</span>
+              <ChevronDown className="w-4 h-4 text-muted-foreground -rotate-90" />
+            </div>
+          </button>
+          <div className="border-t border-border/40" />
           {/* 关系类型 — 点击展开选择 */}
           <button
             onClick={() => setShowRelationPicker(!showRelationPicker)}
@@ -173,7 +212,48 @@ export function RelationshipPage({ store, onBack }: Props) {
             重新设置引导流程
           </button>
         </div>
+
+        {/* Dissolve relationship */}
+        <div className="pt-4 pb-8">
+          <button
+            onClick={() => setShowDissolveConfirm(true)}
+            className="w-full py-3 text-sm text-destructive/80 hover:text-destructive transition-colors"
+          >
+            解除关系
+          </button>
+        </div>
       </div>
+
+      {/* Dissolve confirmation overlay */}
+      {showDissolveConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in">
+          <div className="mx-6 w-full max-w-[300px] bg-card rounded-3xl border border-border/40 p-6 shadow-xl animate-scale-in">
+            <div className="text-center mb-4">
+              <span className="text-3xl">💔</span>
+              <h3 className="text-base font-bold text-foreground mt-2">确定要解除关系吗？</h3>
+              <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
+                解除后将切回单人模式，共享空间和纪念日将被清除，但各自的记录会保留。
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDissolveConfirm(false)}
+                disabled={dissolving}
+                className="flex-1 py-2.5 text-sm font-medium text-foreground bg-secondary rounded-xl hover:bg-secondary/80 transition-colors"
+              >
+                再想想
+              </button>
+              <button
+                onClick={handleDissolve}
+                disabled={dissolving}
+                className="flex-1 py-2.5 text-sm font-medium text-white bg-destructive rounded-xl hover:bg-destructive/90 transition-colors disabled:opacity-50"
+              >
+                {dissolving ? '解除中...' : '确定解除'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

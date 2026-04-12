@@ -21,7 +21,7 @@ import { INTENSITY_CONFIG, ITEM_TYPE_CONFIG } from '@/types'
 import type { CompanionAnimal, RelationType } from '@/lib/companion'
 import { COMPANION_CHARACTERS } from '@/lib/companion'
 import { calculateMood, calculateEnergy, getTodayDateString } from '@/lib/pet-state'
-import { isTodayAnniversary } from '@/lib/anniversary'
+import { isTodayAnniversary, daysUntilNext } from '@/lib/anniversary'
 import { generateWarmComment, generatePetComment } from '@/lib/ai-comments'
 import { generateDemoNarrativeEntry } from '@/lib/narrative'
 import * as narrativeApi from '@/api/narrative'
@@ -53,6 +53,7 @@ export const USERS: User[] = [
 ]
 
 // ---- shared relationship space ----
+const _initDate = new Date()
 const INITIAL_SPACE: RelationshipSpace = {
   id: 'space-1',
   userIds: ['user-1', 'user-2'],
@@ -67,7 +68,16 @@ const INITIAL_SPACE: RelationshipSpace = {
     todayInteractions: 0,
     interactionDate: getTodayDateString(),
   },
-  anniversaries: [],
+  anniversaries: [
+    {
+      id: 'anniversary-together',
+      title: '在一起',
+      date: `${String(_initDate.getMonth() + 1).padStart(2, '0')}-${String(_initDate.getDate()).padStart(2, '0')}`,
+      year: _initDate.getFullYear(),
+      emoji: '💕',
+      isRecurring: true,
+    },
+  ],
 }
 
 export function getUser(id: string): User {
@@ -396,6 +406,24 @@ export function useStore(options?: { apiMode?: boolean }) {
       }
       if (spaceResult.ok && spaceResult.data) {
         const sp = spaceResult.data!
+        const loadedAnniversaries = sp.anniversaries
+        // Auto-create "在一起" anniversary if missing
+        const hasTogether = loadedAnniversaries.some((a: Anniversary) => a.title.includes('在一起'))
+        if (!hasTogether) {
+          const d = new Date(sp.createdAt)
+          const autoAnniversary: Omit<Anniversary, 'id'> = {
+            title: '在一起',
+            date: `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`,
+            year: d.getFullYear(),
+            emoji: '💕',
+            isRecurring: true,
+          }
+          spaceApi.addAnniversary(autoAnniversary).then((result) => {
+            if (result.ok && result.data) {
+              setSpace((prev) => ({ ...prev, anniversaries: [...prev.anniversaries, result.data!] }))
+            }
+          })
+        }
         setSpace({
           id: sp.id,
           userIds: [],
@@ -403,7 +431,7 @@ export function useStore(options?: { apiMode?: boolean }) {
           companion: sp.companion,
           createdAt: sp.createdAt,
           petState: sp.petState,
-          anniversaries: sp.anniversaries,
+          anniversaries: loadedAnniversaries,
         })
       }
       setIsApiLoading(false)
@@ -837,6 +865,14 @@ export function useStore(options?: { apiMode?: boolean }) {
     setSpace((prev) => ({ ...prev, relationType }))
   }, [])
 
+  const setUserCity = useCallback((userId: string, city: string) => {
+    setUsers((prev) => prev.map((u) => u.id === userId ? { ...u, userCity: city } : u))
+  }, [])
+
+  const updateUserProfile = useCallback((userId: string, patch: Partial<Pick<User, 'name' | 'avatar' | 'userCity' | 'birthday' | 'bio'>>) => {
+    setUsers((prev) => prev.map((u) => u.id === userId ? { ...u, ...patch } : u))
+  }, [])
+
   const completeOnboarding = useCallback((userId: string) => {
     setUsers((prev) => prev.map((u) => u.id === userId ? { ...u, onboarded: true } : u))
   }, [])
@@ -844,6 +880,18 @@ export function useStore(options?: { apiMode?: boolean }) {
   const resetOnboarding = useCallback((userId: string) => {
     setUsers((prev) => prev.map((u) => u.id === userId ? { ...u, onboarded: false } : u))
   }, [])
+
+  // ---- Dissolve relationship ----
+  const dissolveRelationship = useCallback(async () => {
+    if (apiMode) {
+      const result = await spaceApi.dissolveRelationship()
+      if (!result.ok) return
+    }
+    setUsers((prev) => prev.map((u) => ({ ...u, partnerId: '' })))
+    setSpace({ ...INITIAL_SPACE, anniversaries: [] })
+    setRelayMessages([])
+    showToast('关系已解除', 'info')
+  }, [apiMode, showToast])
 
   // ---- Pet interaction ----
   const petInteraction = useCallback((type: PetInteractionType) => {
@@ -965,9 +1013,43 @@ export function useStore(options?: { apiMode?: boolean }) {
     interactionDate: todayStr,
   }
 
-  // Relationship derived data
-  const relationDays = Math.max(1, Math.floor((Date.now() - space.createdAt) / 86_400_000))
+  // Relationship derived data — prefer "在一起" anniversary date over space.createdAt
+  const togetherAnniversary = space.anniversaries.find((a) => a.title.includes('在一起'))
+  let relationDays: number
+  if (togetherAnniversary?.year) {
+    const [mm, dd] = togetherAnniversary.date.split('-').map(Number)
+    const togetherDate = new Date(togetherAnniversary.year, mm - 1, dd)
+    relationDays = Math.max(1, Math.floor((Date.now() - togetherDate.getTime()) / 86_400_000))
+  } else {
+    relationDays = Math.max(1, Math.floor((Date.now() - space.createdAt) / 86_400_000))
+  }
   const todayAnniversaries = space.anniversaries.filter(isTodayAnniversary)
+
+  // Upcoming anniversaries for AI context (within 30 days)
+  const upcomingAnniversaries = space.anniversaries
+    .map((a) => ({ title: a.title, emoji: a.emoji, daysUntil: daysUntilNext(a), isToday: isTodayAnniversary(a) }))
+    .filter((a) => a.daysUntil <= 30)
+    .sort((a, b) => a.daysUntil - b.daysUntil)
+    .slice(0, 5)
+
+  // Task summary for AI context
+  const aiTaskSummary = {
+    pendingTasks: instances
+      .filter((i) => i.status === 'pending' || i.status === 'awaiting' || i.status === 'deferred')
+      .slice(0, 5)
+      .map((i) => {
+        const tpl = templates.find((t) => t.id === i.templateId)
+        return tpl
+          ? { name: tpl.name, category: tpl.category, itemType: tpl.itemType, forPartner: tpl.receiverId !== tpl.creatorId }
+          : null
+      })
+      .filter((t): t is NonNullable<typeof t> => t !== null),
+    todayCompleted: todayCompletedCount,
+    todayTotal: todayTotalCount,
+    overdueCount: instances.filter(
+      (i) => (i.status === 'pending' || i.status === 'deferred') && i.scheduledTime < Date.now(),
+    ).length,
+  }
 
   // Draft & feelings derived data
   const getDraftItems = useCallback(
@@ -1185,6 +1267,8 @@ export function useStore(options?: { apiMode?: boolean }) {
     todayCareCount,
     relationDays,
     todayAnniversaries,
+    upcomingAnniversaries,
+    aiTaskSummary,
     // Getters
     getTemplate,
     getReceivedItems,
@@ -1202,6 +1286,8 @@ export function useStore(options?: { apiMode?: boolean }) {
     // Space actions
     updateSpaceCompanion,
     updateSpaceRelationType,
+    setUserCity,
+    updateUserProfile,
     petInteraction,
     addAnniversary,
     removeAnniversary,
@@ -1209,6 +1295,7 @@ export function useStore(options?: { apiMode?: boolean }) {
     // User actions
     completeOnboarding,
     resetOnboarding,
+    dissolveRelationship,
     // Instance actions
     completeInstance,
     deferInstance,

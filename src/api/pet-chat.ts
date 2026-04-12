@@ -10,6 +10,17 @@ interface PetChatContext {
   mood: string
   energy: number
   relationDays: number
+  userCity?: string
+  userName?: string
+  partnerName?: string
+  partnerCity?: string
+  upcomingAnniversaries?: Array<{ title: string; emoji: string; daysUntil: number; isToday: boolean }>
+  taskSummary?: {
+    pendingTasks: Array<{ name: string; category: string; itemType: string; forPartner: boolean }>
+    todayCompleted: number
+    todayTotal: number
+    overdueCount: number
+  }
 }
 
 interface PetChatResult {

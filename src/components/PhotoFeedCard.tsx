@@ -1,6 +1,7 @@
 import { useRef, useCallback } from 'react'
 import type { FeelingEntry, Comment } from '@/types'
 import { CommentSection } from '@/components/CommentSection'
+import { UserAvatar } from '@/components/UserAvatar'
 import { Video, MapPin, Trash2, EyeOff } from 'lucide-react'
 
 interface PhotoFeedCardProps {
@@ -106,7 +107,7 @@ export function PhotoFeedCard({
       {/* Author line (dual mode) */}
       {authorName && (
         <div className="flex items-center gap-1.5 mb-2">
-          <span className="text-base">{authorAvatar}</span>
+          <span className="w-5 h-5 rounded-full overflow-hidden inline-flex items-center justify-center text-base"><UserAvatar avatar={authorAvatar || '👧'} imgClass="w-5 h-5" /></span>
           <span className="text-xs font-medium text-muted-foreground">{authorName}</span>
         </div>
       )}

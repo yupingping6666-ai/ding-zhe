@@ -10,6 +10,7 @@ import {
 import type { Category, RepeatRule, FollowUpIntensity, ItemType, FeelingEntryType } from '@/types'
 import type { Store } from '@/store'
 import { getPartner } from '@/store'
+import { UserAvatar } from '@/components/UserAvatar'
 import { useCurrentUser } from '@/contexts/UserContext'
 import { ArrowLeft, Camera, MapPin, Video, X, Search, ChevronRight, Loader2, Navigation } from 'lucide-react'
 
@@ -543,7 +544,7 @@ function DualModeForm({ store, currentUserId, onBack }: { store: Store; currentU
                 !receiverIsSelf ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground'
               }`}
             >
-              <span>{partner.avatar}</span> {partner.name}
+              <span className="w-5 h-5 rounded-full overflow-hidden inline-flex items-center justify-center"><UserAvatar avatar={partner.avatar} imgClass="w-5 h-5" /></span> {partner.name}
             </button>
             <button
               onClick={() => setReceiverIsSelf(true)}

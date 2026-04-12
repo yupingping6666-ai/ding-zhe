@@ -8,6 +8,7 @@ interface ApiContextValue {
   isAuthenticated: boolean
   isLoading: boolean
   user: UserProfile | null
+  updateUser: (patch: Partial<UserProfile>) => void
   login: (nickname: string) => Promise<AuthResult>
   loginWithPhone: (phone: string, password: string) => Promise<AuthResult>
   register: (phone: string, code: string, password: string) => Promise<AuthResult>
@@ -104,6 +105,10 @@ export function ApiProvider({ children }: ApiProviderProps) {
     return { ok: false, error: result.error?.message }
   }, [])
 
+  const updateUser = useCallback((patch: Partial<UserProfile>) => {
+    setUser(prev => prev ? { ...prev, ...patch } : prev)
+  }, [])
+
   const logout = useCallback(() => {
     authApi.logout()
     setUser(null)
@@ -112,7 +117,7 @@ export function ApiProvider({ children }: ApiProviderProps) {
 
   return (
     <ApiContext.Provider value={{
-      isAuthenticated, isLoading, user,
+      isAuthenticated, isLoading, user, updateUser,
       login, loginWithPhone, register, sendCode, resetPassword, logout,
     }}>
       {children}

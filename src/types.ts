@@ -98,6 +98,9 @@ export interface User {
   avatar: string // emoji
   partnerId: string
   onboarded: boolean
+  userCity?: string
+  birthday?: string // "YYYY-MM-DD", year 0000 means year not set
+  bio?: string      // max 50 chars
 }
 
 // ---- Relationship Space (shared between two users) ----

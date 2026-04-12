@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { Comment } from '@/types'
+import { UserAvatar } from '@/components/UserAvatar'
 import { Send } from 'lucide-react'
 
 interface CommentSectionProps {
@@ -36,8 +37,8 @@ export function CommentSection({ comments, onAddComment, currentUserName, petNam
             const displayAvatar = c.author === 'ai' ? petAvatar : (resolved?.avatar || '👧')
             return (
               <div key={c.id} className="flex items-start gap-1.5 text-xs">
-                <span className="shrink-0 mt-0.5">
-                  {displayAvatar}
+                <span className="shrink-0 mt-0.5 w-4 h-4 rounded-full overflow-hidden inline-flex items-center justify-center">
+                  <UserAvatar avatar={displayAvatar || '👧'} imgClass="w-4 h-4" />
                 </span>
                 <span className={c.author === 'ai' ? 'text-muted-foreground' : 'text-foreground'}>
                   <span className="font-semibold">

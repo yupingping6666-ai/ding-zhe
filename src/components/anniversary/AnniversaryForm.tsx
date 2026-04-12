@@ -19,10 +19,13 @@ export function AnniversaryForm({ onSubmit, onCancel }: AnniversaryFormProps) {
     if (!title.trim() || !month || !day) return
     const mm = String(Number(month)).padStart(2, '0')
     const dd = String(Number(day)).padStart(2, '0')
+    const y = year ? Number(year) : null
+    const currentYear = new Date().getFullYear()
+    const validYear = y && y >= 1900 && y <= currentYear ? y : null
     onSubmit({
       title: title.trim(),
       date: `${mm}-${dd}`,
-      year: year ? Number(year) : null,
+      year: validYear,
       emoji,
       isRecurring,
     })
@@ -45,35 +48,45 @@ export function AnniversaryForm({ onSubmit, onCancel }: AnniversaryFormProps) {
       />
 
       {/* Date */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5">
         <input
-          type="number"
+          type="text"
+          inputMode="numeric"
           value={month}
-          onChange={(e) => setMonth(e.target.value)}
+          onChange={(e) => {
+            const v = e.target.value.replace(/\D/g, '').slice(0, 2)
+            const n = parseInt(v, 10)
+            setMonth(v && n > 12 ? '12' : v)
+          }}
           placeholder="月"
-          min={1}
-          max={12}
-          className="w-16 px-2 py-2 rounded-xl bg-muted/50 text-sm text-center text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+          className="w-12 px-1.5 py-2 rounded-xl bg-muted/50 text-sm text-center text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
         />
-        <span className="text-muted-foreground text-sm">月</span>
+        <span className="text-muted-foreground text-xs shrink-0">月</span>
         <input
-          type="number"
+          type="text"
+          inputMode="numeric"
           value={day}
-          onChange={(e) => setDay(e.target.value)}
+          onChange={(e) => {
+            const v = e.target.value.replace(/\D/g, '').slice(0, 2)
+            const n = parseInt(v, 10)
+            setDay(v && n > 31 ? '31' : v)
+          }}
           placeholder="日"
-          min={1}
-          max={31}
-          className="w-16 px-2 py-2 rounded-xl bg-muted/50 text-sm text-center text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+          className="w-12 px-1.5 py-2 rounded-xl bg-muted/50 text-sm text-center text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
         />
-        <span className="text-muted-foreground text-sm">日</span>
+        <span className="text-muted-foreground text-xs shrink-0">日</span>
         <input
-          type="number"
+          type="text"
+          inputMode="numeric"
           value={year}
-          onChange={(e) => setYear(e.target.value)}
+          onChange={(e) => {
+            const v = e.target.value.replace(/\D/g, '').slice(0, 4)
+            const n = parseInt(v, 10)
+            const max = new Date().getFullYear()
+            setYear(v.length === 4 && n > max ? String(max) : v)
+          }}
           placeholder="年(可选)"
-          min={1990}
-          max={2099}
-          className="flex-1 px-2 py-2 rounded-xl bg-muted/50 text-sm text-center text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+          className="flex-1 min-w-0 px-1.5 py-2 rounded-xl bg-muted/50 text-sm text-center text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
         />
       </div>
 

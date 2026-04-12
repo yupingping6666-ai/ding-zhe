@@ -25,6 +25,17 @@ interface KeywordRule {
   expression: PetExpression
 }
 
+const WEATHER_RULES: KeywordRule = {
+  keywords: ['天气', '气温', '温度', '下雨', '下雪', '刮风', '多少度', '冷不冷', '热不热', '穿什么', '带伞', '晴天', '阴天', '雾霾'],
+  replies: [
+    '喵~ {name}看了看窗外... 这个{name}也不太确定呢，要不看看天气预报？',
+    '喵呜~ {name}只知道窝里暖暖的，外面的天气{name}不太清楚呢~',
+    '嗯... {name}是室内猫，天气的事{name}不太懂，但{name}觉得不管什么天气，记得照顾好自己哦！',
+    '喵？天气呀... {name}帮你趴窗户看了一眼，好像还行？具体的{name}也说不准啦~',
+  ],
+  expression: 'thinking',
+}
+
 const GREETING_RULES: KeywordRule = {
   keywords: ['你好', '嗨', 'hi', 'hello', '早', '早上好', '晚安', '下午好', '嘿'],
   replies: [
@@ -230,6 +241,11 @@ export function generateCatReply(
   }
 
   const text = input.content
+
+  // Weather fallback (highest priority — only used when AI/server is unavailable)
+  if (matchesKeywords(text, WEATHER_RULES.keywords)) {
+    return { text: fillName(pick(WEATHER_RULES.replies), name), expression: WEATHER_RULES.expression }
+  }
 
   // Keyword matching (priority order)
   if (matchesKeywords(text, GREETING_RULES.keywords)) {

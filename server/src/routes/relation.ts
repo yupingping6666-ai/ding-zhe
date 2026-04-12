@@ -45,4 +45,25 @@ router.post('/bind', authMiddleware, async (_req: AuthRequest, res) => {
   res.json({ ok: true, message: 'Use /invite to bind partner' })
 })
 
+router.post('/dissolve', authMiddleware, async (req: AuthRequest, res) => {
+  try {
+    const result = await relationService.dissolveRelationship(req.userId!)
+
+    if ('error' in result) {
+      return res.status(400).json({
+        ok: false,
+        error: { code: result.error, message: result.message },
+      })
+    }
+
+    res.json({ ok: true, data: result })
+  } catch (error) {
+    console.error('Dissolve error:', error)
+    res.status(500).json({
+      ok: false,
+      error: { code: 'DISSOLVE_FAILED', message: 'Failed to dissolve relationship' },
+    })
+  }
+})
+
 export default router

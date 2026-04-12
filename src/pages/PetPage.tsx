@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { Sparkles } from 'lucide-react'
 import type { Store } from '@/store'
+import { getPartner } from '@/store'
 import type { PetExpression, ChatMessage, ChatQuickAction } from '@/types'
 import { COMPANION_CHARACTERS } from '@/lib/companion'
 import { canInteract, getInteractionCooldownRemaining, PET_COOLDOWNS } from '@/lib/pet-state'
@@ -187,11 +188,19 @@ export function PetPage({ store, onTodayStory, onFeelingCreate, onBack }: PetPag
     const wantsPhotos = /照片|图片|纪念|相册|看看|拍的/.test(text)
 
     // Try AI, fallback to local
+    const currentUser = store.getUserProfile(currentUserId)
+    const partner = getPartner(currentUserId)
     const aiPromise = chatWithPet(text, chatHistoryRef.current.slice(0, -1), {
       companionName: companion.name,
       mood: store.currentPetState.mood,
       energy: store.currentPetState.energy,
       relationDays: store.relationDays,
+      userName: currentUser.name,
+      userCity: currentUser.userCity,
+      partnerName: partner.name,
+      partnerCity: partner.userCity,
+      upcomingAnniversaries: store.upcomingAnniversaries,
+      taskSummary: store.aiTaskSummary,
     }, wantsPhotos && recentPhotoUrls.length > 0 ? recentPhotoUrls : undefined)
 
     const [aiResult] = await Promise.all([aiPromise, minDelay])
@@ -244,11 +253,19 @@ export function PetPage({ store, onTodayStory, onFeelingCreate, onBack }: PetPag
     if (action === 'advice') {
       pushHistory('user', userText)
       const minDelay = new Promise(r => setTimeout(r, 600))
+      const adviceUser = store.getUserProfile(currentUserId)
+      const advicePartner = getPartner(currentUserId)
       const aiPromise = chatWithPet(userText, chatHistoryRef.current.slice(0, -1), {
         companionName: companion.name,
         mood: store.currentPetState.mood,
         energy: store.currentPetState.energy,
         relationDays: store.relationDays,
+        userName: adviceUser.name,
+        userCity: adviceUser.userCity,
+        partnerName: advicePartner.name,
+        partnerCity: advicePartner.userCity,
+        upcomingAnniversaries: store.upcomingAnniversaries,
+        taskSummary: store.aiTaskSummary,
       }, undefined) // Quick actions don't send photos
       const [aiResult] = await Promise.all([aiPromise, minDelay])
 

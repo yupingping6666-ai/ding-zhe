@@ -66,3 +66,36 @@ export async function invitePartner(inviterId: string, targetNickname: string) {
     partner: { id: targetUser.id, nickname: targetUser.nickname },
   }
 }
+
+export async function dissolveRelationship(userId: string) {
+  // Find user's partner
+  const userResult = await pool.query(
+    'SELECT partner_id FROM users WHERE id = $1',
+    [userId]
+  )
+
+  const partnerId = userResult.rows[0]?.partner_id
+  if (!partnerId) {
+    return { error: 'NO_RELATIONSHIP', message: '当前没有绑定关系' }
+  }
+
+  // Delete relationship space (pet_states + anniversaries cascade-deleted)
+  await pool.query(
+    `DELETE FROM relationship_spaces
+     WHERE (user_id_1 = $1 AND user_id_2 = $2)
+        OR (user_id_1 = $2 AND user_id_2 = $1)`,
+    [userId, partnerId]
+  )
+
+  // Clear partner_id and switch both users back to single mode
+  await pool.query(
+    'UPDATE users SET partner_id = NULL, mode = $1 WHERE id = $2',
+    ['single', userId]
+  )
+  await pool.query(
+    'UPDATE users SET partner_id = NULL, mode = $1 WHERE id = $2',
+    ['single', partnerId]
+  )
+
+  return { mode: 'single' }
+}

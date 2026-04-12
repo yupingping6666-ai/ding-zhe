@@ -10,6 +10,9 @@ import {
 } from '@/lib/companion'
 import type { CompanionAnimal, RelationType } from '@/lib/companion'
 import { ArrowRight, Copy, Check } from 'lucide-react'
+import standingCatImg from '@/assets/pets/cat/standing.png'
+import happyCatImg from '@/assets/pets/cat/happy.png'
+import loveCatImg from '@/assets/pets/cat/love.png'
 
 interface Props {
   store: Store
@@ -89,7 +92,7 @@ export function OnboardingPage({ store, onComplete }: Props) {
     return (
       <div className="px-6 pt-8 pb-6">
         <div className="text-center mb-8">
-          <span className="text-5xl block mb-3 animate-float">{character.expressions.happy}</span>
+          <img src={happyCatImg} alt="小橘" className="w-16 h-16 object-contain mx-auto mb-3 animate-float" draggable={false} />
           <h2 className="text-xl font-extrabold text-foreground mb-1">
             选择你们的陪伴小动物
           </h2>
@@ -99,31 +102,42 @@ export function OnboardingPage({ store, onComplete }: Props) {
         </div>
 
         <div className="grid grid-cols-4 gap-3 mb-8">
-          {COMPANION_LIST.map((c) => (
-            <button
-              key={c.id}
-              onClick={() => setSelectedAnimal(c.id)}
-              className={`flex flex-col items-center gap-1.5 p-3 rounded-3xl border-2 transition-all active:scale-95 ${
-                selectedAnimal === c.id
-                  ? 'border-primary bg-primary/5 shadow-card-default'
-                  : 'border-transparent bg-card hover:bg-accent/30'
-              }`}
-            >
-              <span className="text-3xl">{c.avatar}</span>
-              <span className={`text-xs font-semibold ${
-                selectedAnimal === c.id ? 'text-primary' : 'text-muted-foreground'
-              }`}>
-                {c.name}
-              </span>
-            </button>
-          ))}
+          {COMPANION_LIST.map((c) => {
+            const isCat = c.id === 'cat'
+            return (
+              <button
+                key={c.id}
+                onClick={() => { if (isCat) setSelectedAnimal(c.id) }}
+                disabled={!isCat}
+                className={`flex flex-col items-center gap-1.5 p-3 rounded-3xl border-2 transition-all ${
+                  isCat
+                    ? 'border-primary bg-primary/5 shadow-card-default active:scale-95'
+                    : 'border-transparent bg-secondary/30 opacity-40 cursor-not-allowed'
+                }`}
+              >
+                {isCat ? (
+                  <img src={standingCatImg} alt="小橘" className="w-10 h-10 object-contain" draggable={false} />
+                ) : (
+                  <span className="text-3xl grayscale">{c.avatar}</span>
+                )}
+                <span className={`text-xs font-semibold ${
+                  isCat ? 'text-primary' : 'text-muted-foreground/50'
+                }`}>
+                  {c.name}
+                </span>
+                {!isCat && (
+                  <span className="text-[9px] text-muted-foreground/40 -mt-1">即将开放</span>
+                )}
+              </button>
+            )
+          })}
         </div>
 
         {/* Preview */}
         <div className="bg-card rounded-3xl border border-border/40 p-5 mb-6 text-center">
           <p className="text-sm text-muted-foreground mb-3">预览</p>
           <div className="flex items-center justify-center gap-3 mb-2">
-            <span className="text-4xl">{character.expressions.love}</span>
+            <img src={loveCatImg} alt="小橘" className="w-14 h-14 object-contain" draggable={false} />
           </div>
           <p className="text-sm text-foreground font-semibold">
             {getCompanionMessage(character, 'welcome').text}
@@ -146,7 +160,7 @@ export function OnboardingPage({ store, onComplete }: Props) {
     return (
       <div className="px-6 pt-8 pb-6">
         <div className="text-center mb-8">
-          <span className="text-5xl block mb-3">{character.expressions.love}</span>
+          <img src={loveCatImg} alt="小橘" className="w-14 h-14 object-contain mx-auto mb-3" draggable={false} />
           <h2 className="text-xl font-extrabold text-foreground mb-1">
             你和对方是什么关系?
           </h2>
@@ -196,7 +210,7 @@ export function OnboardingPage({ store, onComplete }: Props) {
     return (
       <div className="px-6 pt-8 pb-6">
         <div className="text-center mb-8">
-          <span className="text-5xl block mb-3 animate-float">{character.expressions.happy}</span>
+          <img src={happyCatImg} alt="小橘" className="w-14 h-14 object-contain mx-auto mb-3 animate-float" draggable={false} />
           <h2 className="text-xl font-extrabold text-foreground mb-1">
             邀请你的{relationLabel}加入
           </h2>
@@ -261,7 +275,7 @@ export function OnboardingPage({ store, onComplete }: Props) {
   return (
     <div className="flex flex-col items-center justify-center min-h-[700px] px-8 text-center">
       <div className="mb-6">
-        <span className="text-7xl block animate-float">{character.expressions.celebrate}</span>
+        <img src={happyCatImg} alt="小橘" className="w-20 h-20 object-contain animate-float" draggable={false} />
       </div>
       <h1 className="text-2xl font-extrabold text-foreground mb-3">
         一切准备就绪!
@@ -276,7 +290,7 @@ export function OnboardingPage({ store, onComplete }: Props) {
         onClick={handleDone}
         className="flex items-center gap-2 px-8 py-4 rounded-full gradient-float-btn text-primary-foreground shadow-float text-base font-bold active:scale-95 transition-all"
       >
-        {character.expressions.happy} 开始使用
+        <img src={happyCatImg} alt="" className="w-5 h-5 object-contain inline" draggable={false} /> 开始使用
       </button>
     </div>
   )

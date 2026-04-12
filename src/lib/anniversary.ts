@@ -39,7 +39,7 @@ export function formatAnniversaryLabel(a: Anniversary): string {
   const days = daysUntilNext(a)
   if (days <= 7) return `还有 ${days} 天`
   if (days <= 30) return `还有 ${days} 天`
-  return `${a.date}`
+  return a.year ? `${a.year}-${a.date}` : `${a.date}`
 }
 
 export const ANNIVERSARY_EMOJIS = ['💕', '🎂', '🎉', '💍', '🏠', '🌹', '✈️', '📸', '🌸', '🎁']

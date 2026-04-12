@@ -2,6 +2,7 @@ import { ITEM_TYPE_CONFIG } from '@/types'
 import { formatTime } from '@/lib/time'
 import type { TaskInstance, TaskTemplate, RelationStatus } from '@/types'
 import { getUser } from '@/store'
+import { UserAvatar } from '@/components/UserAvatar'
 import { CheckCircle2, Clock, MessageCircle, Eye, Send, Hourglass } from 'lucide-react'
 
 interface Props {
@@ -82,7 +83,7 @@ export function SentItemCard({ instance, template, onTapName }: Props) {
           </div>
 
           <p className="text-xs text-muted-foreground mt-0.5">
-            给 {receiver.avatar} {receiver.name} &middot; {formatTime(instance.scheduledTime)}
+            给 <span className="w-3.5 h-3.5 rounded-full overflow-hidden inline-flex items-center justify-center align-middle"><UserAvatar avatar={receiver.avatar} imgClass="w-3.5 h-3.5" /></span> {receiver.name} &middot; {formatTime(instance.scheduledTime)}
           </p>
 
           {/* Mini progress dots */}

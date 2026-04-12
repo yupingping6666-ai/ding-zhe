@@ -4,6 +4,7 @@ import { ITEM_TYPE_CONFIG } from '@/types'
 import { formatDelay, formatTime, formatDateLabel } from '@/lib/time'
 import type { TaskInstance, TaskTemplate } from '@/types'
 import { getUser } from '@/store'
+import { UserAvatar } from '@/components/UserAvatar'
 import { useCurrentUser } from '@/contexts/UserContext'
 import { Clock, ChevronDown, Send, Calendar, Date as DateIcon } from 'lucide-react'
 
@@ -45,7 +46,7 @@ export function TaskCard({ instance, template, onComplete, onDefer, onSkip, onCa
 
   // Relationship-oriented sender label
   const senderLabel = sender
-    ? `${sender.avatar} ${sender.name}${typeConf.senderVerb}`
+    ? <><span className="w-3.5 h-3.5 rounded-full overflow-hidden inline-flex items-center justify-center align-middle"><UserAvatar avatar={sender.avatar} imgClass="w-3.5 h-3.5" /></span> {sender.name}{typeConf.senderVerb}</>
     : null
 
   // Card style per type

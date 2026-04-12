@@ -69,3 +69,9 @@ export async function petInteract(type: 'pet' | 'feed') {
     body: JSON.stringify({ type }),
   })
 }
+
+export async function dissolveRelationship() {
+  return apiFetch<{ mode: string }>('/relation/dissolve', {
+    method: 'POST',
+  })
+}

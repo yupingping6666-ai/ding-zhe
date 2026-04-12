@@ -15,6 +15,7 @@ import type {
   ItemType,
 } from '@/types'
 import { USERS } from '@/store'
+import { UserAvatar } from '@/components/UserAvatar'
 import { useCurrentUser } from '@/contexts/UserContext'
 import { Clock, Repeat, FolderOpen, Gauge, User, Tag } from 'lucide-react'
 
@@ -94,7 +95,7 @@ export function ConfirmationCard({ parsed, defaults, overrides, onOverride }: Pr
         {/* Receiver */}
         <FieldChip
           icon={<User className="w-3.5 h-3.5" />}
-          label={isSelf ? '自己' : (receiverUser ? `${receiverUser.avatar} ${receiverUser.name}` : '自己')}
+          label={isSelf ? '自己' : (receiverUser ? <><span className="w-3.5 h-3.5 rounded-full overflow-hidden inline-flex items-center justify-center align-middle"><UserAvatar avatar={receiverUser.avatar} imgClass="w-3.5 h-3.5" /></span> {receiverUser.name}</> : '自己')}
           inferred={!overrides.receiverId}
           active={editing === 'receiver'}
           onClick={() => toggleEdit('receiver')}
@@ -190,7 +191,7 @@ export function ConfirmationCard({ parsed, defaults, overrides, onOverride }: Pr
 
 function FieldChip({ icon, label, inferred, active, onClick }: {
   icon: React.ReactNode
-  label: string
+  label: React.ReactNode
   inferred: boolean
   active: boolean
   onClick: () => void
@@ -367,7 +368,7 @@ function InlineReceiverEditor({ value, currentUserId, onChange }: { value: strin
               value === partner.id ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground hover:bg-accent'
             }`}
           >
-            <span>{partner.avatar}</span> {partner.name}
+            <span className="w-4 h-4 rounded-full overflow-hidden inline-flex items-center justify-center"><UserAvatar avatar={partner.avatar} imgClass="w-4 h-4" /></span> {partner.name}
           </button>
         )}
         <button
