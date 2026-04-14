@@ -3,21 +3,26 @@ import { formatAnniversaryLabel, daysUntilNext, isTodayAnniversary } from '@/lib
 
 interface AnniversaryBadgeProps {
   anniversary: Anniversary
+  isSelected?: boolean
+  onClick?: () => void
 }
 
-export function AnniversaryBadge({ anniversary }: AnniversaryBadgeProps) {
+export function AnniversaryBadge({ anniversary, isSelected, onClick }: AnniversaryBadgeProps) {
   const isToday = isTodayAnniversary(anniversary)
   const days = daysUntilNext(anniversary)
   const label = formatAnniversaryLabel(anniversary)
 
   return (
     <div
+      onClick={onClick}
       className={`
         flex items-center gap-2 px-3 py-2 rounded-xl
-        transition-all duration-300
+        transition-all duration-300 cursor-pointer active:scale-[0.98]
         ${isToday
           ? 'bg-[hsl(var(--anniversary-surface))] border border-[hsl(var(--anniversary)/0.3)] shadow-sm'
-          : 'bg-card/60'
+          : isSelected
+            ? 'bg-primary/5 border border-primary/20'
+            : 'bg-card/60 hover:bg-card/80'
         }
       `}
     >
@@ -27,6 +32,7 @@ export function AnniversaryBadge({ anniversary }: AnniversaryBadgeProps) {
       <div className="flex-1 min-w-0">
         <p className={`text-sm font-medium truncate ${isToday ? 'text-[hsl(var(--anniversary))]' : 'text-foreground'}`}>
           {anniversary.title}
+          {anniversary.isPrimary && <span className="ml-1 text-xs text-amber-500">⭐</span>}
         </p>
         <p className="text-2xs text-muted-foreground">
           {label}

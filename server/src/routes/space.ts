@@ -51,7 +51,7 @@ router.get('/anniversaries', authMiddleware, async (req: AuthRequest, res) => {
 // POST /api/space/anniversaries
 router.post('/anniversaries', authMiddleware, async (req: AuthRequest, res) => {
   try {
-    const { title, date_mm_dd, start_year, emoji, is_recurring } = req.body
+    const { title, date_mm_dd, start_year, emoji, is_recurring, is_primary } = req.body
     if (!title || !date_mm_dd) {
       return res.status(400).json({ ok: false, error: { code: 'BAD_REQUEST', message: 'Missing title or date_mm_dd' } })
     }
@@ -61,6 +61,7 @@ router.post('/anniversaries', authMiddleware, async (req: AuthRequest, res) => {
       start_year,
       emoji: emoji || '📅',
       is_recurring: is_recurring !== undefined ? is_recurring : true,
+      is_primary: is_primary || false,
     })
     res.json({ ok: true, data: result })
   } catch (error) {

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import type { Store } from '@/store'
 import { useCurrentUser } from '@/contexts/UserContext'
 import {
@@ -7,6 +7,7 @@ import {
 } from '@/lib/companion'
 import type { RelationType } from '@/lib/companion'
 import { getRelationDurationText, humanizeStats } from '@/lib/narrative'
+import { generateInviteCode } from '@/lib/invite-code'
 import { AnniversarySection } from '@/components/anniversary/AnniversarySection'
 import { UserAvatar } from '@/components/UserAvatar'
 import { ArrowLeft, ChevronDown } from 'lucide-react'
@@ -26,6 +27,17 @@ export function RelationshipPage({ store, onBack, onEditProfile }: Props) {
   const [showRelationPicker, setShowRelationPicker] = useState(false)
   const [showDissolveConfirm, setShowDissolveConfirm] = useState(false)
   const [dissolving, setDissolving] = useState(false)
+  const [showInviteCode, setShowInviteCode] = useState(false)
+  const [inviteCopied, setInviteCopied] = useState(false)
+
+  // 生成稳定的邀请码（基于 userId，不随渲染变化）
+  const inviteCode = useMemo(() => generateInviteCode(currentUserId), [currentUserId])
+
+  function handleCopyInviteCode() {
+    navigator.clipboard?.writeText(inviteCode).catch(() => {})
+    setInviteCopied(true)
+    setTimeout(() => setInviteCopied(false), 2000)
+  }
 
   const completedCount = store.instances.filter(i => i.status === 'completed').length
   const careCount = store.templates.filter(t => t.itemType === 'care').length
@@ -99,6 +111,7 @@ export function RelationshipPage({ store, onBack, onEditProfile }: Props) {
           anniversaries={store.space.anniversaries}
           onAdd={store.addAnniversary}
           onRemove={store.removeAnniversary}
+          onUpdate={store.updateAnniversary}
         />
 
         {/* Shared companion — cat active, others greyed out */}
@@ -200,10 +213,38 @@ export function RelationshipPage({ store, onBack, onEditProfile }: Props) {
           )}
 
           <div className="border-t border-border/40" />
-          <button className="w-full px-5 py-4 text-sm text-left text-foreground hover:bg-accent/30 transition-colors flex items-center justify-between">
+          <button
+            onClick={() => setShowInviteCode(!showInviteCode)}
+            className="w-full px-5 py-4 text-sm text-left text-foreground hover:bg-accent/30 transition-colors flex items-center justify-between"
+          >
             <span>邀请码</span>
-            <span className="text-muted-foreground text-xs font-mono">查看</span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-muted-foreground text-xs font-mono">{showInviteCode ? '收起' : '查看'}</span>
+              <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${showInviteCode ? 'rotate-180' : ''}`} />
+            </div>
           </button>
+
+          {showInviteCode && (
+            <div className="px-5 pb-4 animate-fade-in">
+              <div className="bg-secondary/50 rounded-2xl p-4 space-y-3">
+                <p className="text-xs text-muted-foreground text-center">你的专属邀请码</p>
+                <p className="text-xl font-bold font-mono text-center text-primary tracking-wider">{inviteCode}</p>
+                <p className="text-2xs text-muted-foreground text-center leading-relaxed">
+                  把邀请码分享给对方，TA 在引导页输入后即可加入你们的共享空间
+                </p>
+                <button
+                  onClick={handleCopyInviteCode}
+                  className={`w-full py-2.5 rounded-xl text-xs font-medium transition-all active:scale-95 ${
+                    inviteCopied
+                      ? 'bg-[hsl(var(--success))]/15 text-[hsl(var(--success))]'
+                      : 'bg-primary/10 text-primary hover:bg-primary/15'
+                  }`}
+                >
+                  {inviteCopied ? '已复制到剪贴板' : '复制邀请码'}
+                </button>
+              </div>
+            </div>
+          )}
           <div className="border-t border-border/40" />
           <button
             onClick={() => store.resetOnboarding(currentUserId)}

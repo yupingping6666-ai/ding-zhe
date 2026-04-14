@@ -62,7 +62,8 @@ function buildBirthday(year: string, month: string, day: string): string | undef
   const d = parseInt(day, 10)
   if (!m || !d || m < 1 || m > 12 || d < 1 || d > 31) return undefined
   const y = parseInt(year, 10)
-  const yearStr = (y && y >= 1900 && y <= 2099) ? String(y) : '0000'
+  const currentYear = new Date().getFullYear()
+  const yearStr = (y && y >= 1900 && y <= currentYear) ? String(y) : '0000'
   return `${yearStr}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
 }
 
@@ -251,7 +252,13 @@ export function ProfileEditPage({ store, userId, onBack }: ProfileEditPageProps)
                   value={editBirthYear}
                   onChange={(e) => {
                     const v = e.target.value.replace(/\D/g, '').slice(0, 4)
-                    setEditBirthYear(v)
+                    if (v.length === 4) {
+                      const n = parseInt(v, 10)
+                      const currentYear = new Date().getFullYear()
+                      setEditBirthYear(n > currentYear ? String(currentYear) : n < 1900 ? '1900' : v)
+                    } else {
+                      setEditBirthYear(v)
+                    }
                   }}
                   placeholder="年"
                   className="w-[4.5rem] px-2 py-1.5 rounded-xl bg-muted/50 text-sm text-center text-foreground outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground/40"

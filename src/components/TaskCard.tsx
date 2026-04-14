@@ -18,7 +18,7 @@ interface Props {
   onFeedback: (id: string, text: string) => void
   onTapName?: (id: string) => void
   onDateChange?: (id: string, newDate: Date) => void
-  variant: 'deferred' | 'awaiting' | 'pending'
+  variant: 'deferred' | 'awaiting' | 'pending' | 'completed' | 'skipped'
 }
 
 const DEFER_OPTIONS = [
@@ -38,6 +38,7 @@ export function TaskCard({ instance, template, onComplete, onDefer, onSkip, onCa
   const typeConf = ITEM_TYPE_CONFIG[template.itemType]
   const isDeferred = variant === 'deferred'
   const isPending = variant === 'pending'
+  const isDone = variant === 'completed' || variant === 'skipped'
   const delayText = formatDelay(instance.deferredSince)
   const isSelf = template.creatorId === template.receiverId
   const sender = !isSelf && template.creatorId !== currentUserId
@@ -163,7 +164,7 @@ export function TaskCard({ instance, template, onComplete, onDefer, onSkip, onCa
       )}
 
       {/* Confirm type: feedback input */}
-      {template.itemType === 'confirm' && (
+      {!isDone && template.itemType === 'confirm' && (
         <div className="mb-3 ml-9 flex items-center gap-2">
           <input
             type="text"
@@ -187,6 +188,7 @@ export function TaskCard({ instance, template, onComplete, onDefer, onSkip, onCa
       )}
 
       {/* Action buttons — pill shaped, type-colored */}
+      {!isDone && (
       <div className="flex items-center gap-2 ml-9">
         {/* Primary action */}
         {template.itemType === 'care' && (
@@ -234,6 +236,7 @@ export function TaskCard({ instance, template, onComplete, onDefer, onSkip, onCa
           </Button>
         )}
       </div>
+      )}
     </div>
   )
 }

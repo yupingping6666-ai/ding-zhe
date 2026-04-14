@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import type { Store } from '@/store'
 import { getUser } from '@/store'
 import { useCurrentUser } from '@/contexts/UserContext'
@@ -9,6 +9,7 @@ import {
   getCompanionMessage,
 } from '@/lib/companion'
 import type { CompanionAnimal, RelationType } from '@/lib/companion'
+import { generateInviteCode, resolveInviteCode } from '@/lib/invite-code'
 import { ArrowRight, Copy, Check } from 'lucide-react'
 import standingCatImg from '@/assets/pets/cat/standing.png'
 import happyCatImg from '@/assets/pets/cat/happy.png'
@@ -28,9 +29,12 @@ export function OnboardingPage({ store, onComplete }: Props) {
   const [selectedAnimal, setSelectedAnimal] = useState<CompanionAnimal>(store.space.companion)
   const [selectedRelation, setSelectedRelation] = useState<RelationType>('couple')
   const [copied, setCopied] = useState(false)
+  const [joinCode, setJoinCode] = useState('')
+  const [joinError, setJoinError] = useState('')
 
   const character = COMPANION_CHARACTERS[selectedAnimal]
-  const inviteCode = `YJD-${currentUserId.slice(-1).toUpperCase()}${Math.random().toString(36).slice(2, 6).toUpperCase()}`
+  const inviteCode = useMemo(() => generateInviteCode(currentUserId), [currentUserId])
+  const alreadyPaired = user.partnerId && user.partnerId.length > 0
 
   function handleCharacterConfirm() {
     store.updateSpaceCompanion(selectedAnimal)
@@ -39,7 +43,12 @@ export function OnboardingPage({ store, onComplete }: Props) {
 
   function handleRelationConfirm() {
     store.updateSpaceRelationType(selectedRelation)
-    setStep('invite')
+    // If already paired (via invite code), skip invite step
+    if (alreadyPaired) {
+      setStep('done')
+    } else {
+      setStep('invite')
+    }
   }
 
   function handleInviteConfirm() {
@@ -55,6 +64,34 @@ export function OnboardingPage({ store, onComplete }: Props) {
     navigator.clipboard?.writeText(inviteCode).catch(() => {})
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  function handleJoin() {
+    const code = joinCode.trim().toUpperCase()
+    if (!code) {
+      setJoinError('请输入邀请码')
+      return
+    }
+    if (code === inviteCode) {
+      setJoinError('不能输入自己的邀请码哦~')
+      return
+    }
+    const targetUser = resolveInviteCode(code, store.users)
+    if (!targetUser) {
+      setJoinError('邀请码无效，请检查后重试')
+      return
+    }
+    if (targetUser.partnerId && targetUser.partnerId.length > 0) {
+      setJoinError('对方已经有搭档了')
+      return
+    }
+    const currentUser = store.users.find(u => u.id === currentUserId)
+    if (currentUser?.partnerId && currentUser.partnerId.length > 0) {
+      setJoinError('你已经配对了')
+      return
+    }
+    setJoinError('')
+    store.bindPartner(currentUserId, targetUser.id)
   }
 
   // ---- Welcome step ----
@@ -212,7 +249,7 @@ export function OnboardingPage({ store, onComplete }: Props) {
         <div className="text-center mb-8">
           <img src={happyCatImg} alt="小橘" className="w-14 h-14 object-contain mx-auto mb-3 animate-float" draggable={false} />
           <h2 className="text-xl font-extrabold text-foreground mb-1">
-            邀请你的{relationLabel}加入
+            邀请你的另一半加入
           </h2>
           <p className="text-sm text-muted-foreground">
             把邀请码发给TA，建立你们的专属空间
@@ -244,13 +281,21 @@ export function OnboardingPage({ store, onComplete }: Props) {
           <div className="flex gap-2">
             <input
               type="text"
+              value={joinCode}
+              onChange={(e) => { setJoinCode(e.target.value); setJoinError('') }}
               placeholder="输入邀请码..."
-              className="flex-1 h-11 px-4 rounded-full bg-secondary border-none text-sm text-center font-mono tracking-widest placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/30"
+              className="flex-1 min-w-0 h-11 px-4 rounded-full bg-secondary border-none text-sm text-center font-mono tracking-widest placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/30"
             />
-            <button className="h-11 px-5 rounded-full bg-primary text-primary-foreground text-sm font-bold active:scale-95 transition-all">
+            <button
+              onClick={handleJoin}
+              className="h-11 px-6 rounded-full bg-primary text-primary-foreground text-sm font-bold active:scale-95 transition-all shrink-0 whitespace-nowrap"
+            >
               加入
             </button>
           </div>
+          {joinError && (
+            <p className="text-xs text-destructive text-center mt-2 animate-fade-in">{joinError}</p>
+          )}
         </div>
 
         <button

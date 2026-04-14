@@ -8,7 +8,6 @@ import { PhotoFeedCard } from '@/components/PhotoFeedCard'
 import { PhotoDetailView } from '@/components/PhotoDetailView'
 import { EntryActionSheet } from '@/components/EntryActionSheet'
 import { DeleteConfirmDialog } from '@/components/DeleteConfirmDialog'
-import PetCommentLine from '@/components/PetCommentLine'
 import { PrivacyLockScreen } from '@/components/PrivacyLockScreen'
 
 interface PhotoWallPageProps {
@@ -148,7 +147,6 @@ export function PhotoWallPage({ store, userMode, currentUserId, onOpenFeelingDet
                 </div>
                 <div className={`space-y-4 ${showHidden ? 'opacity-70' : ''}`}>
                   {entries.map((entry) => {
-                    const petComment = store.getPetComment(entry.id)
                     const isOwnEntry = entry.userId === currentUserId
                     const entryAuthor = store.getUserProfile(entry.userId)
                     return (
@@ -177,9 +175,6 @@ export function PhotoWallPage({ store, userMode, currentUserId, onOpenFeelingDet
                             return { name: profile.name, avatar: profile.avatar }
                           } : undefined}
                         />
-                        {petComment && !showHidden && (
-                          <PetCommentLine comment={petComment} className="mt-1.5 ml-1" />
-                        )}
                       </div>
                     )
                   })}

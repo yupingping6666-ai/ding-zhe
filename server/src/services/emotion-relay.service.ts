@@ -6,7 +6,7 @@ const dashscopeClient = new OpenAI({
   baseURL: config.dashscope.baseUrl,
 })
 
-const RELAY_MODEL = 'qwen-plus'
+const RELAY_MODEL = 'kimi-k2.5'
 
 interface RelayContext {
   senderName: string

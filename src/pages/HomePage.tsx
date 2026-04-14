@@ -7,28 +7,28 @@ import { formatTime } from '@/lib/time'
 import type { Store } from '@/store'
 import { getUser } from '@/store'
 import { useCurrentUser } from '@/contexts/UserContext'
-import { useApi } from '@/contexts/ApiContext'
 import { COMPANION_CHARACTERS, getCompanionMessage } from '@/lib/companion'
 import { canInteract, getInteractionCooldownRemaining, PET_COOLDOWNS } from '@/lib/pet-state'
 import PetSvg from '@/components/pet/PetSvg'
-import { Bell, Camera, Mic, Heart, CheckCircle2, Calendar, BarChart3, Sparkles, ChevronRight, UtensilsCrossed, MessageCircle } from 'lucide-react'
+import { getTimeOfDay } from '@/lib/time-of-day'
+import { Bell, Camera, Mic, Heart, CheckCircle2, Calendar, BarChart3, Sparkles, ChevronRight, UtensilsCrossed, HandHeart } from 'lucide-react'
 
 interface Props {
   store: Store
+  userMode: 'single' | 'dual'
   onOpenDetail: (templateId: string) => void
   onOpenFeelingDetail: (feelingId: string) => void
   onTriggerReminder: (instanceId: string) => void
   onVoiceCreate: () => void
   onOpenPetPanel: () => void
   onOpenCreate: () => void
+  onOpenNotifications: () => void
 }
 
 type HomeTab = 'received' | 'sent'
 
-export function HomePage({ store, onOpenDetail, onOpenFeelingDetail, onTriggerReminder, onVoiceCreate, onOpenPetPanel, onOpenCreate }: Props) {
+export function HomePage({ store, userMode, onOpenDetail, onOpenFeelingDetail, onTriggerReminder, onVoiceCreate, onOpenPetPanel, onOpenCreate, onOpenNotifications }: Props) {
   const currentUserId = useCurrentUser()
-  const { user: apiUser } = useApi()
-  const userMode = apiUser?.mode || 'dual'
   const [tab, setTab] = useState<HomeTab>('received')
   const [expandedUpcoming, setExpandedUpcoming] = useState<Set<string>>(new Set())
   const [petBounce, setPetBounce] = useState(false)
@@ -86,9 +86,9 @@ export function HomePage({ store, onOpenDetail, onOpenFeelingDetail, onTriggerRe
     setTimeout(() => setOverrideExpression(null), 3000)
   }, [feedReady, store, showFloat])
 
-  const handleTalkAction = useCallback(() => {
+  const handleHugAction = useCallback(() => {
     setOverrideExpression('love')
-    showFloat('喜欢你！')
+    showFloat('好温暖！')
     setTimeout(() => setOverrideExpression(null), 3000)
   }, [showFloat])
 
@@ -122,7 +122,16 @@ export function HomePage({ store, onOpenDetail, onOpenFeelingDetail, onTriggerRe
   const selfDone = selfItems.filter((i) => i.status === 'completed' || i.status === 'skipped' || i.status === 'expired')
 
   // Pet expression
+  const isNight = getTimeOfDay() === 'night'
   const getPetExpression = (): PetExpression => {
+    // Recent interaction still takes priority
+    const now = Date.now()
+    const lastInteraction = Math.max(store.currentPetState.lastPetted || 0, store.currentPetState.lastFed || 0)
+    if (lastInteraction && (now - lastInteraction) < 5 * 60 * 1000) return 'happy'
+
+    // Late night: default to sleeping
+    if (isNight) return 'sleeping'
+
     const mood = store.currentPetState.mood
     let baseExpression: PetExpression = 'idle'
     switch (mood) {
@@ -133,9 +142,6 @@ export function HomePage({ store, onOpenDetail, onOpenFeelingDetail, onTriggerRe
       case 'neutral': baseExpression = 'thinking'; break
       default: baseExpression = 'idle'
     }
-    const now = Date.now()
-    const lastInteraction = Math.max(store.currentPetState.lastPetted || 0, store.currentPetState.lastFed || 0)
-    if (lastInteraction && (now - lastInteraction) < 5 * 60 * 1000) return 'happy'
     if (store.currentPetState.energy < 30) return 'sleeping'
     if (store.currentPetState.energy > 70 && !lastInteraction) return 'playing'
     return baseExpression
@@ -165,6 +171,9 @@ export function HomePage({ store, onOpenDetail, onOpenFeelingDetail, onTriggerRe
       return '刚被摸过，心情很好'
     }
 
+    // Late night: sleeping
+    if (isNight) return '已经睡着啦，晚安~'
+
     // Energy-based
     if (store.currentPetState.energy < 30) return '有点累了，想休息'
     if (store.currentPetState.energy > 70 && store.currentPetState.todayInteractions > 0) return '精力充沛，想玩！'
@@ -189,14 +198,33 @@ export function HomePage({ store, onOpenDetail, onOpenFeelingDetail, onTriggerRe
 
   // Interaction heatmap data (last 7 days)
   const heatmapData = useMemo(() => {
-    const days = ['一', '二', '三', '四', '五', '六', '日']
-    const now = Date.now()
-    return days.map((label, i) => {
-      const dayStart = now - (6 - i) * 86_400_000
+    const weekdayLabels = ['日', '一', '二', '三', '四', '五', '六']
+    const now = new Date()
+
+    return Array.from({ length: 7 }, (_, i) => {
+      const date = new Date(now)
+      date.setDate(date.getDate() - (6 - i))
+      // Align to midnight
+      const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime()
       const dayEnd = dayStart + 86_400_000
-      const count = store.getFeelings(currentUserId).filter(f =>
+      const label = weekdayLabels[date.getDay()]
+
+      // Count feelings created
+      const feelingCount = store.getFeelings(currentUserId).filter(f =>
         f.createdAt >= dayStart && f.createdAt < dayEnd
       ).length
+
+      // Count task actions (complete, defer, skip, feedback, etc.)
+      const taskActionCount = store.getReceivedItems(currentUserId).reduce((sum, inst) =>
+        sum + inst.actionLog.filter(a => a.timestamp >= dayStart && a.timestamp < dayEnd).length
+      , 0)
+
+      // Count relay messages sent
+      const relayCount = store.relayMessages.filter(r =>
+        r.senderId === currentUserId && r.createdAt >= dayStart && r.createdAt < dayEnd
+      ).length
+
+      const count = feelingCount + taskActionCount + relayCount
       return { label, count, maxCount: 5 }
     })
   }, [store, currentUserId])
@@ -233,16 +261,18 @@ export function HomePage({ store, onOpenDetail, onOpenFeelingDetail, onTriggerRe
           <div>
             <p className="text-base font-bold text-foreground">{user?.name || '你'}，记录一下</p>
           </div>
-          {notifications.length > 0 && (
-            <button
-              onClick={() => setTab('received')}
-              className="relative p-2 rounded-full bg-white/60 backdrop-blur-sm"
-            >
-              <Bell className="w-5 h-5 text-foreground/60" />
-              <div className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center">
-                <span className="text-[9px] text-white font-bold">{notifications.length}</span>
-              </div>
-            </button>
+          {userMode === 'dual' && notifications.length > 0 && (
+            <div className="relative">
+              <button
+                onClick={onOpenNotifications}
+                className="relative p-2 rounded-full bg-white/60 backdrop-blur-sm"
+              >
+                <Bell className="w-5 h-5 text-foreground/60" />
+                <div className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center">
+                  <span className="text-[9px] text-white font-bold">{notifications.length}</span>
+                </div>
+              </button>
+            </div>
           )}
         </div>
 
@@ -273,7 +303,7 @@ export function HomePage({ store, onOpenDetail, onOpenFeelingDetail, onTriggerRe
           className={`relative flex items-center justify-center pt-2 pb-2 cursor-pointer z-10 ${petBounce ? 'animate-pet-bounce' : ''}`}
           onClick={handlePetClick}
         >
-          <div className="relative w-48 h-48">
+          <div className="relative w-40 h-40">
             <PetSvg
               animal={store.space.companion}
               expression={petExpression}
@@ -323,11 +353,11 @@ export function HomePage({ store, onOpenDetail, onOpenFeelingDetail, onTriggerRe
             <span className="text-2xs font-medium">{feedReady ? '喂食' : `${Math.ceil(feedCooldown / 60)}min`}</span>
           </button>
           <button
-            onClick={handleTalkAction}
+            onClick={handleHugAction}
             className="flex flex-col items-center gap-1 text-muted-foreground transition-all active:scale-90"
           >
-            <MessageCircle className="w-5 h-5 text-confirm/70" />
-            <span className="text-2xs font-medium">说话</span>
+            <HandHeart className="w-5 h-5 text-confirm/70" />
+            <span className="text-2xs font-medium">拥抱</span>
           </button>
         </div>
       </div>
@@ -390,6 +420,26 @@ export function HomePage({ store, onOpenDetail, onOpenFeelingDetail, onTriggerRe
             <span className="text-2xs text-muted-foreground">近7天</span>
           </div>
           <HeatmapCurve data={heatmapData} />
+          {/* Data summary */}
+          <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/20">
+            <div className="flex items-center gap-1">
+              <span className="text-2xs text-muted-foreground">总互动</span>
+              <span className="text-xs font-bold text-foreground">{heatmapData.reduce((s, d) => s + d.count, 0)}</span>
+              <span className="text-2xs text-muted-foreground">次</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-2xs text-muted-foreground">日均</span>
+              <span className="text-xs font-bold text-foreground">{(heatmapData.reduce((s, d) => s + d.count, 0) / 7).toFixed(1)}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-2xs text-muted-foreground">今日</span>
+              <span className="text-xs font-bold text-primary">{heatmapData[heatmapData.length - 1]?.count ?? 0}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-2xs text-muted-foreground">峰值</span>
+              <span className="text-xs font-bold text-foreground">{Math.max(...heatmapData.map(d => d.count))}</span>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -569,7 +619,7 @@ export function HomePage({ store, onOpenDetail, onOpenFeelingDetail, onTriggerRe
         </div>
       </div>
 
-      {notifications.length > 0 && tab === 'received' && (
+      {userMode === 'dual' && notifications.length > 0 && tab === 'received' && (
         <div className="px-4 mt-3">
           <div className="bg-care-surface/70 border border-care/15 rounded-2xl p-3.5 space-y-2">
             {notifications.slice(0, 3).map((n) => (

@@ -19,6 +19,12 @@ export default defineConfig({
         target: 'http://localhost:3001',
         changeOrigin: true,
       },
+      '/kimi-proxy': {
+        target: 'https://coding.dashscope.aliyuncs.com/v1',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/kimi-proxy/, ''),
+        secure: true,
+      },
     },
   },
 })

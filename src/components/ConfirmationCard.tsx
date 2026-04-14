@@ -24,11 +24,12 @@ interface Props {
   defaults: CreateTaskInput
   overrides: Partial<CreateTaskInput>
   onOverride: (field: string, value: unknown) => void
+  userMode: 'single' | 'dual'
 }
 
 type EditField = 'time' | 'category' | 'repeat' | 'intensity' | 'receiver' | 'itemType' | null
 
-export function ConfirmationCard({ parsed, defaults, overrides, onOverride }: Props) {
+export function ConfirmationCard({ parsed, defaults, overrides, onOverride, userMode }: Props) {
   const [editing, setEditing] = useState<EditField>(null)
   const currentUserId = useCurrentUser()
 
@@ -95,10 +96,10 @@ export function ConfirmationCard({ parsed, defaults, overrides, onOverride }: Pr
         {/* Receiver */}
         <FieldChip
           icon={<User className="w-3.5 h-3.5" />}
-          label={isSelf ? '自己' : (receiverUser ? <><span className="w-3.5 h-3.5 rounded-full overflow-hidden inline-flex items-center justify-center align-middle"><UserAvatar avatar={receiverUser.avatar} imgClass="w-3.5 h-3.5" /></span> {receiverUser.name}</> : '自己')}
+          label={userMode === 'single' ? '自己' : (isSelf ? '自己' : (receiverUser ? <><span className="w-3.5 h-3.5 rounded-full overflow-hidden inline-flex items-center justify-center align-middle"><UserAvatar avatar={receiverUser.avatar} imgClass="w-3.5 h-3.5" /></span> {receiverUser.name}</> : '自己'))}
           inferred={!overrides.receiverId}
           active={editing === 'receiver'}
-          onClick={() => toggleEdit('receiver')}
+          onClick={userMode === 'dual' ? () => toggleEdit('receiver') : undefined}
         />
         {/* Item Type */}
         <FieldChip
@@ -143,7 +144,7 @@ export function ConfirmationCard({ parsed, defaults, overrides, onOverride }: Pr
       </div>
 
       {/* Inline editors */}
-      {editing === 'receiver' && (
+      {editing === 'receiver' && userMode === 'dual' && (
         <InlineReceiverEditor
           value={resolvedReceiverId}
           currentUserId={currentUserId}
@@ -194,7 +195,7 @@ function FieldChip({ icon, label, inferred, active, onClick }: {
   label: React.ReactNode
   inferred: boolean
   active: boolean
-  onClick: () => void
+  onClick?: () => void
 }) {
   return (
     <button

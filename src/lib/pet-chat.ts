@@ -320,7 +320,7 @@ export function getWelcomeMessage(companionName: string, petMood: PetMood): CatR
     text = fillName(pick(prefix), companionName) + ' ' + text
   }
 
-  const expression: PetExpression = petMood === 'sleepy' ? 'sitting' : 'happy'
+  const expression: PetExpression = tod === 'night' ? 'sleeping' : petMood === 'sleepy' ? 'sitting' : 'happy'
   return { text, expression }
 }
 

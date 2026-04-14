@@ -12,7 +12,10 @@ function App() {
   const store = useStore({ apiMode: false })
   const character = COMPANION_CHARACTERS[store.space.companion]
   const [demoMode, setDemoMode] = useState<'single' | 'dual'>('dual')
-  const userMode = demoMode
+
+  // Derive actual mode: if relationship dissolved (no partnerId), force single
+  const hasPartner = store.users.some(u => u.partnerId && u.partnerId.length > 0)
+  const userMode = hasPartner ? demoMode : 'single'
 
   // Loading state
   if (isLoading) {

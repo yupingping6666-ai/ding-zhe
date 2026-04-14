@@ -11,6 +11,7 @@ import { ArrowLeft, Mic, Keyboard, Sparkles, Send } from 'lucide-react'
 
 interface Props {
   store: Store
+  userMode: 'single' | 'dual'
   onBack: () => void
 }
 
@@ -26,7 +27,7 @@ const EXAMPLE_HINTS = [
   '睡前吃维生素',
 ]
 
-export function VoiceCreatePage({ store, onBack }: Props) {
+export function VoiceCreatePage({ store, userMode, onBack }: Props) {
   const currentUserId = useCurrentUser()
   const speech = useSpeechRecognition()
   const [inputMode, setInputMode] = useState<InputMode>(speech.isSupported ? 'voice' : 'text')
@@ -310,6 +311,7 @@ export function VoiceCreatePage({ store, onBack }: Props) {
                   defaults={defaults}
                   overrides={overrides}
                   onOverride={handleOverride}
+                  userMode={userMode}
                 />
               </div>
             )}
@@ -382,6 +384,7 @@ export function VoiceCreatePage({ store, onBack }: Props) {
                 defaults={defaults}
                 overrides={overrides}
                 onOverride={handleOverride}
+                userMode={userMode}
               />
             </div>
 

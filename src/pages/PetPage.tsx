@@ -7,7 +7,7 @@ import { COMPANION_CHARACTERS } from '@/lib/companion'
 import { canInteract, getInteractionCooldownRemaining, PET_COOLDOWNS } from '@/lib/pet-state'
 import { useCurrentUser } from '@/contexts/UserContext'
 import PetSvg from '@/components/pet/PetSvg'
-import petHeroImg from '@/assets/pets/cat/pet-hero.png'
+import { getTimeOfDay } from '@/lib/time-of-day'
 import {
   generateCatReply,
   getWelcomeMessage,
@@ -17,6 +17,7 @@ import {
 import { chatWithPet } from '@/api/pet-chat'
 import { EmotionRelayOverlay } from '@/components/EmotionRelayOverlay'
 import { RelayMessageBubble } from '@/components/RelayMessageBubble'
+import { SenderRelayBubble } from '@/components/RelayMessageBubble'
 
 interface PetPageProps {
   store: Store
@@ -38,7 +39,7 @@ export function PetPage({ store, onTodayStory, onFeelingCreate, onBack }: PetPag
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [inputText, setInputText] = useState('')
   const [isTyping, setIsTyping] = useState(false)
-  const [expression, setExpression] = useState<PetExpression>('idle')
+  const [expression, setExpression] = useState<PetExpression>(getTimeOfDay() === 'night' ? 'sleeping' : 'idle')
   const [inputFocused, setInputFocused] = useState(false)
   const [, setTick] = useState(0)
   const [showRelaySheet, setShowRelaySheet] = useState(false)
@@ -227,7 +228,7 @@ export function PetPage({ store, onTodayStory, onFeelingCreate, onBack }: PetPag
       timestamp: Date.now(),
       expression: replyExpr,
     }])
-    setTimeout(() => setExpression('idle'), 5000)
+    setTimeout(() => setExpression(getTimeOfDay() === 'night' ? 'sleeping' : 'idle'), 5000)
   }, [inputText, isTyping, replyContext, companion.name, store.currentPetState, store.relationDays, recentPhotoUrls])
 
   // ---- Quick action ----
@@ -290,7 +291,7 @@ export function PetPage({ store, onTodayStory, onFeelingCreate, onBack }: PetPag
         timestamp: Date.now(),
         expression: replyExpr,
       }])
-      setTimeout(() => setExpression('idle'), 5000)
+      setTimeout(() => setExpression(getTimeOfDay() === 'night' ? 'sleeping' : 'idle'), 5000)
     } else {
       setTimeout(() => {
         const reply = generateCatReply({ content: userText, actionType: action }, replyContext)
@@ -303,13 +304,14 @@ export function PetPage({ store, onTodayStory, onFeelingCreate, onBack }: PetPag
           timestamp: Date.now(),
           expression: reply.expression,
         }])
-        setTimeout(() => setExpression('idle'), 5000)
+        setTimeout(() => setExpression(getTimeOfDay() === 'night' ? 'sleeping' : 'idle'), 5000)
       }, 600 + Math.random() * 500)
     }
   }, [isTyping, companion.name, petReady, feedReady, store, replyContext, recentPhotoUrls])
 
   // ---- Mood text ----
   const getMoodText = () => {
+    if (getTimeOfDay() === 'night') return '睡着了...'
     const mood = store.currentPetState.mood
     switch (mood) {
       case 'happy': return '心情很好'
@@ -350,8 +352,13 @@ export function PetPage({ store, onTodayStory, onFeelingCreate, onBack }: PetPag
         style={{ background: 'linear-gradient(180deg, hsl(32 70% 96%) 0%, hsl(32 50% 98%) 100%)' }}
       >
         <p className="text-xs font-medium text-muted-foreground mb-1">我们的状态 - 深度对话与分析</p>
-        <div className="w-32 h-32">
-          <img src={petHeroImg} alt={companion.name} className="w-full h-full object-contain drop-shadow-lg" draggable={false} />
+        <div className="w-40 h-40">
+          <PetSvg
+            animal={store.space.companion}
+            expression={expression}
+            className="w-full h-full drop-shadow-lg"
+            blink={false}
+          />
         </div>
         <p className="text-sm font-bold text-foreground mt-1">{companion.name}</p>
         <p className="text-2xs text-muted-foreground">{getMoodText()}</p>
@@ -377,30 +384,15 @@ export function PetPage({ store, onTodayStory, onFeelingCreate, onBack }: PetPag
                 if (!relay) return null
                 const isSender = relay.senderId === currentUserId
                 if (isSender) {
-                  // Sender side: show original text + what was relayed
+                  // Sender side: show original text, relay text collapsed
                   return (
-                    <div key={msg.id} className="flex items-end gap-2 animate-msg-appear">
-                      <div className="relative w-7 h-7 flex-shrink-0">
-                        <div className="w-7 h-7 rounded-full overflow-hidden bg-secondary/50">
-                          <PetSvg animal={store.space.companion} expression="love" className="w-full h-full" />
-                        </div>
-                        <span className="absolute -bottom-0.5 -right-0.5 text-2xs">✉️</span>
-                      </div>
-                      <div
-                        className="max-w-[75%] rounded-2xl rounded-bl-md px-3.5 py-2.5"
-                        style={{ background: 'linear-gradient(135deg, hsl(210 60% 96%), hsl(220 50% 94%))' }}
-                      >
-                        <p className="text-2xs text-muted-foreground/70 mb-1.5">{companion.name}已帮你传达给{store.getUserProfile(relay.receiverId).name}</p>
-                        <div className="mb-1.5 pl-2 border-l-2 border-primary/30">
-                          <p className="text-2xs text-muted-foreground/60 mb-0.5">你的原话</p>
-                          <p className="text-xs text-foreground/80 leading-relaxed">"{relay.originalText}"</p>
-                        </div>
-                        <div className="pl-2 border-l-2 border-accent-foreground/20">
-                          <p className="text-2xs text-muted-foreground/60 mb-0.5">{companion.name}的转述</p>
-                          <p className="text-xs text-foreground leading-relaxed">"{relay.relayText}"</p>
-                        </div>
-                      </div>
-                    </div>
+                    <SenderRelayBubble
+                      key={msg.id}
+                      relay={relay}
+                      companionAnimal={store.space.companion}
+                      companionName={companion.name}
+                      receiverName={store.getUserProfile(relay.receiverId).name}
+                    />
                   )
                 }
                 // Receiver side: existing RelayMessageBubble

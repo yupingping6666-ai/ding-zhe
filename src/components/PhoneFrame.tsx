@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import type { Store } from '@/store'
 import { useCurrentUser } from '@/contexts/UserContext'
 import { COMPANION_CHARACTERS } from '@/lib/companion'
@@ -39,10 +39,20 @@ export function PhoneFrame({ store, userMode }: PhoneFrameProps) {
   const [showChooser, setShowChooser] = useState(false)
   const [createPreset, setCreatePreset] = useState<string | null>(null)
   const [feelingDetailId, setFeelingDetailId] = useState<string | null>(null)
-  const [previousPage, setPreviousPage] = useState<Page>('home')
+  const [feelingDetailBackPage, setFeelingDetailBackPage] = useState<Page>('home')
   const [narrativeId, setNarrativeId] = useState<string | null>(null)
+  const [narrativeBackPage, setNarrativeBackPage] = useState<Page>('home')
   const [showCompletionPrompt, setShowCompletionPrompt] = useState(false)
   const [editingUserId, setEditingUserId] = useState<string | null>(null)
+  const [profileEditBackPage, setProfileEditBackPage] = useState<Page>('home')
+  const [anniversaryDotDismissed, setAnniversaryDotDismissed] = useState(false)
+  const [showNotifPanel, setShowNotifPanel] = useState(false)
+
+  // Reset anniversary dot dismissed state when the anniversary list changes (new day / new anniversary)
+  const anniversaryKey = store.todayAnniversaries.map(a => a.title).join(',')
+  useEffect(() => {
+    setAnniversaryDotDismissed(false)
+  }, [anniversaryKey])
 
   // When relationship is dissolved (mode switches from dual → single),
   // redirect away from the relationship page
@@ -52,25 +62,34 @@ export function PhoneFrame({ store, userMode }: PhoneFrameProps) {
     }
   }, [userMode, page])
 
+  // Mark relay messages as read when leaving pet page
+  const prevPageRef = useRef(page)
+  useEffect(() => {
+    if (prevPageRef.current === 'pet' && page !== 'pet') {
+      store.getUnreadRelays(currentUserId).forEach(r => store.markRelayRead(r.id))
+    }
+    prevPageRef.current = page
+  }, [page, currentUserId, store])
+
   function openDetail(templateId: string) {
     setDetailTemplateId(templateId)
     setPage('detail')
   }
 
   function openFeelingDetail(feelingId: string) {
-    setPreviousPage(page)
+    setFeelingDetailBackPage(page)
     setFeelingDetailId(feelingId)
     setPage('feeling-detail')
   }
 
   function openNarrative(id: string) {
+    setNarrativeBackPage(page)
     setNarrativeId(id)
-    setPreviousPage(page)
     setPage('narrative')
   }
 
   function openProfileEdit(userId: string) {
-    setPreviousPage(page)
+    setProfileEditBackPage(page)
     setEditingUserId(userId)
     setPage('profile-edit')
   }
@@ -128,12 +147,14 @@ export function PhoneFrame({ store, userMode }: PhoneFrameProps) {
         {page === 'home' && (
           <HomePage
             store={store}
+            userMode={userMode}
             onOpenDetail={openDetail}
             onOpenFeelingDetail={openFeelingDetail}
             onTriggerReminder={triggerReminder}
             onVoiceCreate={() => setPage('voice')}
             onOpenPetPanel={() => setPage('pet')}
             onOpenCreate={() => { setCreatePreset('photo-journal'); setPage('create') }}
+            onOpenNotifications={() => setShowNotifPanel(true)}
           />
         )}
         {page === 'pet' && (
@@ -156,7 +177,7 @@ export function PhoneFrame({ store, userMode }: PhoneFrameProps) {
           />
         )}
         {page === 'voice' && (
-          <VoiceCreatePage store={store} onBack={() => setPage('home')} />
+          <VoiceCreatePage store={store} userMode={userMode} onBack={() => setPage('home')} />
         )}
         {page === 'detail' && detailTemplateId && (
           <DetailPage
@@ -175,8 +196,6 @@ export function PhoneFrame({ store, userMode }: PhoneFrameProps) {
           <MyPage
             store={store}
             userMode={userMode}
-            onOpenDetail={openDetail}
-            onOpenFeelingDetail={openFeelingDetail}
             onEditProfile={openProfileEdit}
           />
         )}
@@ -184,7 +203,7 @@ export function PhoneFrame({ store, userMode }: PhoneFrameProps) {
           <ProfileEditPage
             store={store}
             userId={editingUserId}
-            onBack={() => { setEditingUserId(null); setPage(previousPage) }}
+            onBack={() => { setEditingUserId(null); setPage(profileEditBackPage) }}
           />
         )}
         {page === 'photowall' && (
@@ -201,7 +220,7 @@ export function PhoneFrame({ store, userMode }: PhoneFrameProps) {
             store={store}
             feelingId={feelingDetailId}
             currentUserId={currentUserId}
-            onBack={() => { setFeelingDetailId(null); setPage(previousPage) }}
+            onBack={() => { setFeelingDetailId(null); setPage(feelingDetailBackPage) }}
             onOpenNarrative={openNarrative}
           />
         )}
@@ -209,7 +228,7 @@ export function PhoneFrame({ store, userMode }: PhoneFrameProps) {
           <NarrativePage
             store={store}
             narrativeId={narrativeId}
-            onBack={() => { setNarrativeId(null); setPage(previousPage) }}
+            onBack={() => { setNarrativeId(null); setPage(narrativeBackPage) }}
           />
         )}
       </div>
@@ -245,22 +264,25 @@ export function PhoneFrame({ store, userMode }: PhoneFrameProps) {
           </button>
           <button
             onClick={() => setPage('pet')}
-            className={`flex flex-col items-center gap-0.5 px-2 py-1 transition-colors ${
+            className={`flex flex-col items-center gap-0.5 px-2 py-1 transition-colors relative ${
               page === 'pet' ? 'text-primary' : 'text-muted-foreground'
             }`}
           >
             <LayoutGrid className="w-5 h-5" />
             <span className="text-2xs font-medium">小橘</span>
+            {page !== 'pet' && store.getUnreadRelays(currentUserId).length > 0 && (
+              <div className="absolute top-0 right-0.5 w-2 h-2 bg-red-500 rounded-full animate-pulse-soft" />
+            )}
           </button>
           <button
-            onClick={() => userMode === 'single' ? setPage('my') : setPage('relationship')}
+            onClick={() => { setAnniversaryDotDismissed(true); userMode === 'single' ? setPage('my') : setPage('relationship') }}
             className={`flex flex-col items-center gap-0.5 px-2 py-1 transition-colors relative ${
               page === 'my' || page === 'relationship' ? 'text-primary' : 'text-muted-foreground'
             }`}
           >
             <Users className="w-5 h-5" />
             <span className="text-2xs font-medium">{userMode === 'dual' ? '我们' : '我的'}</span>
-            {store.todayAnniversaries.length > 0 && (
+            {userMode === 'dual' && store.todayAnniversaries.length > 0 && !anniversaryDotDismissed && (
               <div className="absolute top-0 right-0.5 w-2 h-2 bg-[hsl(var(--anniversary))] rounded-full animate-pulse-soft" />
             )}
           </button>
@@ -309,6 +331,44 @@ export function PhoneFrame({ store, userMode }: PhoneFrameProps) {
           onPhoto={() => { setShowCompletionPrompt(false); setPage('create'); setCreatePreset('photo-journal') }}
           onDismiss={() => setShowCompletionPrompt(false)}
         />
+      )}
+
+      {/* Notification panel overlay */}
+      {showNotifPanel && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center px-6">
+          <div className="absolute inset-0 bg-foreground/25 backdrop-blur-[2px]" onClick={() => setShowNotifPanel(false)} />
+          <div className="relative w-full max-w-xs max-h-[50%] overflow-y-auto bg-white rounded-2xl shadow-xl border border-border/40 animate-fade-in">
+            <div className="sticky top-0 bg-white px-4 pt-3 pb-2 border-b border-border/20 rounded-t-2xl flex items-center justify-between">
+              <p className="text-sm font-bold text-foreground">通知</p>
+              <button
+                onClick={() => setShowNotifPanel(false)}
+                className="text-xs text-muted-foreground hover:text-foreground px-2 py-1 rounded-full"
+              >
+                关闭
+              </button>
+            </div>
+            <div className="py-1">
+              {store.getUserNotifications(currentUserId).length === 0 ? (
+                <div className="py-8 text-center text-xs text-muted-foreground">暂无通知</div>
+              ) : (
+                store.getUserNotifications(currentUserId).map((n) => (
+                  <div key={n.id} className="flex items-start gap-2.5 px-4 py-3 border-b border-border/10 last:border-b-0">
+                    <span className="text-sm mt-0.5 flex-shrink-0">💌</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-foreground leading-relaxed">{n.message}</p>
+                    </div>
+                    <button
+                      onClick={() => store.dismissNotification(n.id)}
+                      className="text-2xs text-primary font-semibold px-2 py-0.5 rounded-full bg-primary/10 flex-shrink-0 active:bg-primary/20"
+                    >
+                      知道了
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Toast */}

@@ -74,14 +74,14 @@ const PET_RELATIONSHIP_COMMENTS = [
 ]
 
 const PET_RELATIONSHIP_PHOTO_COMMENTS = [
-  '这张照片里你们的眼神好温柔',
   '用镜头记录下的瞬间更珍贵',
-  '你们的合影总是很有故事感',
   '这个画面让我想收藏起来',
-  '照片里的笑容好真实',
   '这一刻值得反复翻看',
   '你们的记录越来越有温度了',
-  '每张照片都是关系的切片',
+  '每张照片都是生活的切片',
+  '好美的画面，替你们珍藏着',
+  '这样的记录方式很有意义',
+  '把美好的瞬间留住了呢',
 ]
 
 const PET_RELATIONSHIP_NEGATIVE_COMMENTS = [
@@ -117,8 +117,8 @@ const PET_SOLO_PHOTO_COMMENTS = [
   '你拍照的视角很独特',
   '这个瞬间被你捕捉到了',
   '照片里有你的温度',
-  '你看到的世界好美好',
   '用影像记录生活，很棒的习惯',
+  '这个画面好治愈',
 ]
 
 const PET_SOLO_NEGATIVE_COMMENTS = [

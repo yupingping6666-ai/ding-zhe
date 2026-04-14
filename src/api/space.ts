@@ -31,6 +31,7 @@ export async function addAnniversary(data: {
   year: number | null
   emoji: string
   isRecurring: boolean
+  isPrimary: boolean
 }) {
   return apiFetch<Anniversary>('/space/anniversaries', {
     method: 'POST',
@@ -40,6 +41,7 @@ export async function addAnniversary(data: {
       start_year: data.year,
       emoji: data.emoji,
       is_recurring: data.isRecurring,
+      is_primary: data.isPrimary,
     }),
   })
 }
@@ -53,6 +55,7 @@ export async function updateAnniversary(id: string, patch: Partial<Omit<Annivers
       ...(patch.year !== undefined && { start_year: patch.year }),
       ...(patch.emoji !== undefined && { emoji: patch.emoji }),
       ...(patch.isRecurring !== undefined && { is_recurring: patch.isRecurring }),
+      ...(patch.isPrimary !== undefined && { is_primary: patch.isPrimary }),
     }),
   })
 }

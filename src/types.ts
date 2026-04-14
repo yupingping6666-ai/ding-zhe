@@ -81,6 +81,7 @@ export interface Anniversary {
   year: number | null         // optional start year for "Nth" calculation
   emoji: string
   isRecurring: boolean
+  isPrimary: boolean          // whether this is the primary anniversary for "days together" calculation
 }
 
 export const PET_MOOD_CONFIG: Record<PetMood, { label: string; emoji: string; companionMood: CompanionMood }> = {

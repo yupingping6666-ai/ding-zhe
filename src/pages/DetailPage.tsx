@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   CATEGORY_CONFIG,
@@ -6,6 +7,7 @@ import {
   WEEKDAY_LABELS,
   ITEM_TYPE_CONFIG,
 } from '@/types'
+import type { Category, RepeatRule, FollowUpIntensity } from '@/types'
 import { formatDelay, formatTime } from '@/lib/time'
 import type { Store } from '@/store'
 import { getUser } from '@/store'
@@ -24,6 +26,34 @@ export function DetailPage({ templateId, store, onBack }: Props) {
   const user = store.getUserProfile(currentUserId)
   const character = COMPANION_CHARACTERS[store.space.companion]
   const template = store.getTemplate(templateId)
+
+  const [editing, setEditing] = useState(false)
+  const [editTime, setEditTime] = useState('')
+  const [editRepeat, setEditRepeat] = useState<RepeatRule>('once')
+  const [editWeeklyDays, setEditWeeklyDays] = useState<number[]>([])
+  const [editCategory, setEditCategory] = useState<Category>('other')
+  const [editIntensity, setEditIntensity] = useState<FollowUpIntensity>('standard')
+
+  function startEditing() {
+    if (!template) return
+    setEditTime(template.remindTime)
+    setEditRepeat(template.repeatRule)
+    setEditWeeklyDays([...template.weeklyDays])
+    setEditCategory(template.category)
+    setEditIntensity(template.followUpIntensity)
+    setEditing(true)
+  }
+
+  function handleSave() {
+    store.updateTemplate(templateId, {
+      remindTime: editTime,
+      repeatRule: editRepeat,
+      weeklyDays: editWeeklyDays,
+      category: editCategory,
+      followUpIntensity: editIntensity,
+    })
+    setEditing(false)
+  }
 
   if (!template) {
     return (
@@ -307,17 +337,150 @@ export function DetailPage({ templateId, store, onBack }: Props) {
         )}
 
         {/* Management (only for creator) */}
-        {isCreator && (
+        {isCreator && !editing && (
           <div className="bg-card rounded-3xl border border-border/40 divide-y divide-border/40 overflow-hidden">
-            <button className="w-full px-5 py-3.5 text-sm text-left text-foreground hover:bg-accent/30 transition-colors rounded-t-3xl">
+            <button
+              className="w-full px-5 py-3.5 text-sm text-left text-foreground hover:bg-accent/30 transition-colors rounded-t-3xl"
+              onClick={startEditing}
+            >
               编辑提醒规则
             </button>
-            <button className="w-full px-5 py-3.5 text-sm text-left text-foreground hover:bg-accent/30 transition-colors">
-              暂停这个提醒
-            </button>
-            <button className="w-full px-5 py-3.5 text-sm text-left text-destructive hover:bg-accent/30 transition-colors rounded-b-3xl">
+            <button
+              className="w-full px-5 py-3.5 text-sm text-left text-destructive hover:bg-accent/30 transition-colors rounded-b-3xl"
+              onClick={() => { store.deleteTemplate(templateId); onBack() }}
+            >
               删除这个提醒
             </button>
+          </div>
+        )}
+
+        {/* Inline editor */}
+        {isCreator && editing && (
+          <div className="bg-card rounded-3xl border border-primary/30 p-5 space-y-4 animate-fade-in">
+            <h3 className="text-sm font-bold text-foreground">编辑提醒规则</h3>
+
+            {/* Time */}
+            <div>
+              <span className="text-xs text-muted-foreground block mb-1.5">提醒时间</span>
+              <div className="flex items-center gap-2 bg-secondary rounded-xl py-2.5 px-3">
+                <select
+                  value={parseInt(editTime.split(':')[0])}
+                  onChange={(e) => setEditTime(`${String(Number(e.target.value)).padStart(2, '0')}:${editTime.split(':')[1]}`)}
+                  className="text-base font-semibold text-foreground bg-transparent appearance-none focus:outline-none cursor-pointer"
+                >
+                  {Array.from({ length: 24 }, (_, i) => (
+                    <option key={i} value={i}>{String(i).padStart(2, '0')}</option>
+                  ))}
+                </select>
+                <span className="text-base font-bold text-muted-foreground">:</span>
+                <select
+                  value={parseInt(editTime.split(':')[1])}
+                  onChange={(e) => setEditTime(`${editTime.split(':')[0]}:${String(Number(e.target.value)).padStart(2, '0')}`)}
+                  className="text-base font-semibold text-foreground bg-transparent appearance-none focus:outline-none cursor-pointer"
+                >
+                  {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map((v) => (
+                    <option key={v} value={v}>{String(v).padStart(2, '0')}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Repeat */}
+            <div>
+              <span className="text-xs text-muted-foreground block mb-1.5">重复</span>
+              <div className="flex bg-secondary rounded-lg p-0.5 gap-0.5">
+                {(Object.entries(REPEAT_CONFIG) as [RepeatRule, { label: string }][]).map(([key, cfg]) => (
+                  <button
+                    key={key}
+                    onClick={() => setEditRepeat(key)}
+                    className={`flex-1 py-1.5 rounded-md text-xs font-medium transition-all ${
+                      editRepeat === key ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground'
+                    }`}
+                  >
+                    {cfg.label}
+                  </button>
+                ))}
+              </div>
+              {editRepeat === 'weekly' && (
+                <div className="flex gap-1 justify-center mt-2">
+                  {WEEKDAY_LABELS.map((label, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setEditWeeklyDays(
+                        editWeeklyDays.includes(idx)
+                          ? editWeeklyDays.filter((d) => d !== idx)
+                          : [...editWeeklyDays, idx]
+                      )}
+                      className={`w-8 h-8 rounded-lg text-xs font-medium transition-all ${
+                        editWeeklyDays.includes(idx)
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-secondary text-muted-foreground'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Category */}
+            <div>
+              <span className="text-xs text-muted-foreground block mb-1.5">分类</span>
+              <div className="flex gap-1.5 flex-wrap">
+                {(Object.entries(CATEGORY_CONFIG) as [Category, { emoji: string; label: string }][]).map(([key, cfg]) => (
+                  <button
+                    key={key}
+                    onClick={() => setEditCategory(key)}
+                    className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                      editCategory === key
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-secondary text-secondary-foreground hover:bg-accent'
+                    }`}
+                  >
+                    <span>{cfg.emoji}</span>
+                    {cfg.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Intensity */}
+            <div>
+              <span className="text-xs text-muted-foreground block mb-1.5">跟进强度</span>
+              <div className="flex bg-secondary rounded-lg p-0.5 gap-0.5">
+                {(Object.entries(INTENSITY_CONFIG) as [FollowUpIntensity, typeof INTENSITY_CONFIG[FollowUpIntensity]][]).map(([key, cfg]) => (
+                  <button
+                    key={key}
+                    onClick={() => setEditIntensity(key)}
+                    className={`flex-1 py-1.5 rounded-md text-xs font-medium transition-all ${
+                      editIntensity === key ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground'
+                    }`}
+                  >
+                    {cfg.label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-2xs text-muted-foreground text-center mt-1.5">
+                {INTENSITY_CONFIG[editIntensity].desc} · {INTENSITY_CONFIG[editIntensity].interval}分钟/{INTENSITY_CONFIG[editIntensity].maxFollowUps}次
+              </p>
+            </div>
+
+            {/* Save / Cancel */}
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={() => setEditing(false)}
+                className="flex-1 py-2.5 rounded-2xl text-sm font-medium text-muted-foreground bg-secondary hover:bg-accent transition-colors"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleSave}
+                className="flex-1 py-2.5 rounded-2xl text-sm font-bold text-white bg-primary shadow-md hover:shadow-lg transition-all active:scale-95"
+              >
+                保存
+              </button>
+            </div>
           </div>
         )}
       </div>

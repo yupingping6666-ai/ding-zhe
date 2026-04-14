@@ -8,6 +8,7 @@ function mapAnniversary(row: any) {
     year: row.start_year,
     emoji: row.emoji,
     isRecurring: row.is_recurring,
+    isPrimary: row.is_primary ?? false,
   }
 }
 
@@ -94,27 +95,42 @@ export async function getAnniversaries(userId: string) {
 
 export async function createAnniversary(
   userId: string,
-  data: { title: string; date_mm_dd: string; start_year?: number; emoji: string; is_recurring: boolean }
+  data: { title: string; date_mm_dd: string; start_year?: number; emoji: string; is_recurring: boolean; is_primary?: boolean }
 ) {
   const spaceId = await getUserSpaceId(userId)
   if (!spaceId) {
     throw new Error('Space not found')
   }
 
-  const result = await pool.query(
-    `INSERT INTO anniversaries (space_id, title, date_mm_dd, start_year, emoji, is_recurring)
-     VALUES ($1, $2, $3, $4, $5, $6)
-     RETURNING *`,
-    [spaceId, data.title, data.date_mm_dd, data.start_year || null, data.emoji, data.is_recurring]
-  )
-
-  return mapAnniversary(result.rows[0])
+  const client = await pool.connect()
+  try {
+    await client.query('BEGIN')
+    if (data.is_primary) {
+      await client.query(
+        `UPDATE anniversaries SET is_primary = FALSE WHERE space_id = $1 AND is_primary = TRUE`,
+        [spaceId]
+      )
+    }
+    const result = await client.query(
+      `INSERT INTO anniversaries (space_id, title, date_mm_dd, start_year, emoji, is_recurring, is_primary)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING *`,
+      [spaceId, data.title, data.date_mm_dd, data.start_year || null, data.emoji, data.is_recurring, data.is_primary || false]
+    )
+    await client.query('COMMIT')
+    return mapAnniversary(result.rows[0])
+  } catch (err) {
+    await client.query('ROLLBACK')
+    throw err
+  } finally {
+    client.release()
+  }
 }
 
 export async function updateAnniversary(
   id: string,
   userId: string,
-  patch: { title?: string; date_mm_dd?: string; start_year?: number; emoji?: string; is_recurring?: boolean }
+  patch: { title?: string; date_mm_dd?: string; start_year?: number; emoji?: string; is_recurring?: boolean; is_primary?: boolean }
 ) {
   const spaceId = await getUserSpaceId(userId)
   if (!spaceId) {
@@ -145,21 +161,38 @@ export async function updateAnniversary(
     fields.push(`is_recurring = $${paramCount++}`)
     values.push(patch.is_recurring)
   }
+  if (patch.is_primary !== undefined) {
+    fields.push(`is_primary = $${paramCount++}`)
+    values.push(patch.is_primary)
+  }
 
   if (fields.length === 0) {
     throw new Error('No fields to update')
   }
 
-  values.push(id, spaceId)
-  const query = `UPDATE anniversaries SET ${fields.join(', ')} WHERE id = $${paramCount} AND space_id = $${paramCount + 1} RETURNING *`
-
-  const result = await pool.query(query, values)
-
-  if (!result.rows[0]) {
-    throw new Error('Anniversary not found or access denied')
+  const client = await pool.connect()
+  try {
+    await client.query('BEGIN')
+    if (patch.is_primary) {
+      await client.query(
+        `UPDATE anniversaries SET is_primary = FALSE WHERE space_id = $1 AND is_primary = TRUE`,
+        [spaceId]
+      )
+    }
+    values.push(id, spaceId)
+    const query = `UPDATE anniversaries SET ${fields.join(', ')} WHERE id = $${paramCount} AND space_id = $${paramCount + 1} RETURNING *`
+    const result = await client.query(query, values)
+    if (!result.rows[0]) {
+      throw new Error('Anniversary not found or access denied')
+    }
+    await client.query('COMMIT')
+    return mapAnniversary(result.rows[0])
+  } catch (err) {
+    await client.query('ROLLBACK')
+    throw err
+  } finally {
+    client.release()
   }
-
-  return mapAnniversary(result.rows[0])
 }
 
 export async function deleteAnniversary(id: string, userId: string) {

@@ -43,3 +43,13 @@ export function formatAnniversaryLabel(a: Anniversary): string {
 }
 
 export const ANNIVERSARY_EMOJIS = ['💕', '🎂', '🎉', '💍', '🏠', '🌹', '✈️', '📸', '🌸', '🎁']
+
+export const ANNIVERSARY_PRESETS = [
+  { title: '在一起',     emoji: '❤️',  suggestPrimary: true },
+  { title: '牵手成功',   emoji: '💕',  suggestPrimary: false },
+  { title: '第一次约会', emoji: '🌹',  suggestPrimary: false },
+  { title: '认识纪念日', emoji: '🤝',  suggestPrimary: false },
+  { title: '求婚纪念日', emoji: '💍',  suggestPrimary: false },
+  { title: '领证纪念日', emoji: '📝',  suggestPrimary: false },
+  { title: '结婚纪念日', emoji: '🎊',  suggestPrimary: true },
+]

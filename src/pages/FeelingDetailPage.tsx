@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { FeelingEntry } from '@/types'
+import type { FeelingEntry, NarrativeEntry } from '@/types'
 import type { Store } from '@/store'
 import { CommentSection } from '@/components/CommentSection'
 import { DeleteConfirmDialog } from '@/components/DeleteConfirmDialog'
@@ -48,6 +48,11 @@ export function FeelingDetailPage({ store, feelingId, currentUserId, onBack, onO
   const [editMood, setEditMood] = useState('')
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [generatingNarrative, setGeneratingNarrative] = useState(false)
+
+  // Check if narrative already exists in store for this feeling
+  const existingNarrative = store.narratives.find((n) => n.feelingIds.includes(feelingId)) ?? null
+  const [narrativeResult, setNarrativeResult] = useState<NarrativeEntry | null>(null)
+  const narrative = narrativeResult ?? existingNarrative
 
   const userName = store.getUserProfile(currentUserId).name
   const comments = store.getComments(feelingId)
@@ -243,28 +248,40 @@ export function FeelingDetailPage({ store, feelingId, currentUserId, onBack, onO
         {/* Divider */}
         <div className="border-t" />
 
-        {/* Pet comment */}
-        {(() => {
+        {/* Pet comment - hide when narrative is generated (narrative includes pet summary) */}
+        {!narrative && (() => {
           const petComment = store.getPetComment(feelingId)
           if (!petComment) return null
           return <PetCommentLine comment={petComment} className="py-1" />
         })()}
 
-        {/* Narrative CTA */}
-        {!editing && onOpenNarrative && (
-          <button
-            onClick={async () => {
-              setGeneratingNarrative(true)
-              const entry = await store.generateNarrativeEntry([feelingId])
-              setGeneratingNarrative(false)
-              if (entry) onOpenNarrative(entry.id)
-            }}
-            disabled={generatingNarrative}
-            className="w-full py-3 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/60 text-sm text-amber-700 font-medium hover:from-amber-100 hover:to-orange-100 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-          >
-            <Sparkles className="w-4 h-4" />
-            {generatingNarrative ? '正在生成...' : '生成这一天的意义'}
-          </button>
+        {/* Narrative CTA / Result */}
+        {!editing && (
+          narrative ? (
+            <div className="animate-fade-in space-y-2">
+              <div className="rounded-2xl bg-gradient-to-br from-amber-50/80 to-orange-50/60 border border-amber-200/40 p-4">
+                <p className="text-xs text-amber-600/70 font-medium mb-2">✨ 这一天的意义</p>
+                <p className="text-sm text-foreground leading-relaxed">{narrative.bodyText}</p>
+              </div>
+              <div className="flex items-start gap-1.5 px-1">
+                <p className="text-xs text-gray-500 leading-relaxed italic">{narrative.petSummary}</p>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={async () => {
+                setGeneratingNarrative(true)
+                const result = await store.generateNarrativeEntry([feelingId])
+                setGeneratingNarrative(false)
+                if (result) setNarrativeResult(result)
+              }}
+              disabled={generatingNarrative}
+              className="w-full py-3 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/60 text-sm text-amber-700 font-medium hover:from-amber-100 hover:to-orange-100 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              <Sparkles className="w-4 h-4" />
+              {generatingNarrative ? '正在生成...' : '生成这一天的意义'}
+            </button>
+          )
         )}
 
         {/* Comments */}
@@ -274,6 +291,11 @@ export function FeelingDetailPage({ store, feelingId, currentUserId, onBack, onO
           currentUserName={userName}
           petName={COMPANION_CHARACTERS[store.space.companion].name}
           petAvatar={COMPANION_CHARACTERS[store.space.companion].avatar}
+          resolveUserName={(userId?: string) => {
+            if (!userId) return { name: userName, avatar: store.getUserProfile(currentUserId).avatar }
+            const profile = store.getUserProfile(userId)
+            return { name: profile.name, avatar: profile.avatar }
+          }}
         />
 
         {/* Hide toggle */}

@@ -28,10 +28,12 @@ export const config = {
     codeExpiry: parseInt(process.env.SMS_CODE_EXPIRY || '300', 10),
   },
 
+  // AI model config (Kimi K2.5 via Moonshot API, OpenAI-compatible)
   dashscope: {
-    apiKey: process.env.DASHSCOPE_API_KEY || '',
-    model: process.env.DASHSCOPE_MODEL || 'qwen-plus',
-    baseUrl: process.env.DASHSCOPE_BASE_URL || 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+    apiKey: process.env.KIMI_API_KEY || process.env.DASHSCOPE_API_KEY || '',
+    model: process.env.KIMI_MODEL || process.env.DASHSCOPE_MODEL || 'kimi-k2.5',
+    vlModel: process.env.KIMI_VL_MODEL || process.env.DASHSCOPE_VL_MODEL || 'kimi-k2.5',
+    baseUrl: process.env.KIMI_BASE_URL || process.env.DASHSCOPE_BASE_URL || 'https://coding.dashscope.aliyuncs.com/v1',
   },
 
   qweather: {

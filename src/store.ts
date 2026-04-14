@@ -25,6 +25,7 @@ import { isTodayAnniversary, daysUntilNext } from '@/lib/anniversary'
 import { generateWarmComment, generatePetComment } from '@/lib/ai-comments'
 import { generateDemoNarrativeEntry } from '@/lib/narrative'
 import * as narrativeApi from '@/api/narrative'
+import { generateVisionNarrative, isVisionAvailable } from '@/lib/vision-narrative'
 
 // API integration (optional)
 import * as taskApi from '@/api/tasks'
@@ -53,7 +54,6 @@ export const USERS: User[] = [
 ]
 
 // ---- shared relationship space ----
-const _initDate = new Date()
 const INITIAL_SPACE: RelationshipSpace = {
   id: 'space-1',
   userIds: ['user-1', 'user-2'],
@@ -68,16 +68,7 @@ const INITIAL_SPACE: RelationshipSpace = {
     todayInteractions: 0,
     interactionDate: getTodayDateString(),
   },
-  anniversaries: [
-    {
-      id: 'anniversary-together',
-      title: '在一起',
-      date: `${String(_initDate.getMonth() + 1).padStart(2, '0')}-${String(_initDate.getDate()).padStart(2, '0')}`,
-      year: _initDate.getFullYear(),
-      emoji: '💕',
-      isRecurring: true,
-    },
-  ],
+  anniversaries: [],
 }
 
 export function getUser(id: string): User {
@@ -407,23 +398,6 @@ export function useStore(options?: { apiMode?: boolean }) {
       if (spaceResult.ok && spaceResult.data) {
         const sp = spaceResult.data!
         const loadedAnniversaries = sp.anniversaries
-        // Auto-create "在一起" anniversary if missing
-        const hasTogether = loadedAnniversaries.some((a: Anniversary) => a.title.includes('在一起'))
-        if (!hasTogether) {
-          const d = new Date(sp.createdAt)
-          const autoAnniversary: Omit<Anniversary, 'id'> = {
-            title: '在一起',
-            date: `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`,
-            year: d.getFullYear(),
-            emoji: '💕',
-            isRecurring: true,
-          }
-          spaceApi.addAnniversary(autoAnniversary).then((result) => {
-            if (result.ok && result.data) {
-              setSpace((prev) => ({ ...prev, anniversaries: [...prev.anniversaries, result.data!] }))
-            }
-          })
-        }
         setSpace({
           id: sp.id,
           userIds: [],
@@ -831,6 +805,17 @@ export function useStore(options?: { apiMode?: boolean }) {
     [showToast, addNotification]
   )
 
+  const deleteTemplate = useCallback((templateId: string) => {
+    setTemplates((prev) => prev.filter((t) => t.id !== templateId))
+    setInstances((prev) => prev.filter((i) => i.templateId !== templateId))
+    showToast('已删除', 'info')
+  }, [showToast])
+
+  const updateTemplate = useCallback((templateId: string, patch: Partial<Pick<TaskTemplate, 'name' | 'remindTime' | 'repeatRule' | 'weeklyDays' | 'category' | 'followUpIntensity'>>) => {
+    setTemplates((prev) => prev.map((t) => t.id === templateId ? { ...t, ...patch } : t))
+    showToast('已更新', 'success')
+  }, [showToast])
+
   const updateInstanceDate = useCallback((instanceId: string, newDate: Date) => {
     setInstances((prev) =>
       prev.map((inst) => {
@@ -881,6 +866,25 @@ export function useStore(options?: { apiMode?: boolean }) {
     setUsers((prev) => prev.map((u) => u.id === userId ? { ...u, onboarded: false } : u))
   }, [])
 
+  // ---- Bind partner (invite-code pairing) ----
+  const bindPartner = useCallback((userId: string, partnerId: string) => {
+    setUsers(prev => prev.map(u => {
+      if (u.id === userId) return { ...u, partnerId, onboarded: false }
+      if (u.id === partnerId) return { ...u, partnerId: userId, onboarded: false }
+      return u
+    }))
+    setSpace(prev => ({
+      ...INITIAL_SPACE,
+      userIds: [userId, partnerId] as [string, string],
+      companion: prev.companion,
+      createdAt: Date.now(),
+      petState: { ...INITIAL_SPACE.petState, interactionDate: getTodayDateString() },
+      anniversaries: [],
+    }))
+    setRelayMessages([])
+    showToast('配对成功！', 'success')
+  }, [showToast])
+
   // ---- Dissolve relationship ----
   const dissolveRelationship = useCallback(async () => {
     if (apiMode) {
@@ -920,15 +924,17 @@ export function useStore(options?: { apiMode?: boolean }) {
 
   // ---- Anniversary CRUD ----
   const addAnniversary = useCallback((a: Omit<Anniversary, 'id'>) => {
+    const clearPrimary = (annivs: Anniversary[]) =>
+      a.isPrimary ? annivs.map((x) => ({ ...x, isPrimary: false })) : annivs
     if (apiMode) {
       spaceApi.addAnniversary(a).then((result) => {
         if (result.ok && result.data) {
-          setSpace((prev) => ({ ...prev, anniversaries: [...prev.anniversaries, result.data!] }))
+          setSpace((prev) => ({ ...prev, anniversaries: [...clearPrimary(prev.anniversaries), result.data!] }))
         }
       })
     } else {
       const newA: Anniversary = { ...a, id: uid() }
-      setSpace((prev) => ({ ...prev, anniversaries: [...prev.anniversaries, newA] }))
+      setSpace((prev) => ({ ...prev, anniversaries: [...clearPrimary(prev.anniversaries), newA] }))
     }
   }, [apiMode])
 
@@ -951,24 +957,20 @@ export function useStore(options?: { apiMode?: boolean }) {
   }, [apiMode])
 
   const updateAnniversary = useCallback((id: string, patch: Partial<Omit<Anniversary, 'id'>>) => {
+    const applyPatch = (annivs: Anniversary[]) =>
+      annivs.map((a) => {
+        if (a.id === id) return { ...a, ...patch }
+        if (patch.isPrimary) return { ...a, isPrimary: false }
+        return a
+      })
     if (apiMode) {
       spaceApi.updateAnniversary(id, patch).then((result) => {
         if (result.ok && result.data) {
-          setSpace((prev) => ({
-            ...prev,
-            anniversaries: prev.anniversaries.map((a) =>
-              a.id === id ? { ...a, ...patch } : a
-            ),
-          }))
+          setSpace((prev) => ({ ...prev, anniversaries: applyPatch(prev.anniversaries) }))
         }
       })
     } else {
-      setSpace((prev) => ({
-        ...prev,
-        anniversaries: prev.anniversaries.map((a) =>
-          a.id === id ? { ...a, ...patch } : a
-        ),
-      }))
+      setSpace((prev) => ({ ...prev, anniversaries: applyPatch(prev.anniversaries) }))
     }
   }, [apiMode])
 
@@ -1013,8 +1015,8 @@ export function useStore(options?: { apiMode?: boolean }) {
     interactionDate: todayStr,
   }
 
-  // Relationship derived data — prefer "在一起" anniversary date over space.createdAt
-  const togetherAnniversary = space.anniversaries.find((a) => a.title.includes('在一起'))
+  // Relationship derived data — prefer primary anniversary date over space.createdAt
+  const togetherAnniversary = space.anniversaries.find((a) => a.isPrimary)
   let relationDays: number
   if (togetherAnniversary?.year) {
     const [mm, dd] = togetherAnniversary.date.split('-').map(Number)
@@ -1155,11 +1157,17 @@ export function useStore(options?: { apiMode?: boolean }) {
     const companion = COMPANION_CHARACTERS[space.companion]
     const isDual = space.relationType !== 'self'
 
-    // Try real AI API first, fall back to template
+    // Try real AI API first, fall back to vision, then template
     try {
       const apiResult = await narrativeApi.generateNarrative({
         scope: isDual ? 'relationship' : 'self',
         taskIds: targetFeelings.map((f) => f.id),
+        feelings: targetFeelings.map((f) => ({
+          content: f.content,
+          mood: f.mood,
+          photoCount: (f.photoUrls || []).length,
+        })),
+        photoUrls: photoUrls.slice(0, 6),
       })
       if (apiResult.ok && apiResult.data) {
         const entry: NarrativeEntry = {
@@ -1176,7 +1184,32 @@ export function useStore(options?: { apiMode?: boolean }) {
         return entry
       }
     } catch {
-      // Fall through to template generation
+      // Fall through to vision/template generation
+    }
+
+    // Try direct vision model if photos exist and API key configured
+    if (photoUrls.length > 0 && isVisionAvailable()) {
+      try {
+        const visionResult = await generateVisionNarrative(
+          targetFeelings, photoUrls, companion.name, companion.avatar, isDual,
+        )
+        if (visionResult) {
+          const entry: NarrativeEntry = {
+            id: `narrative-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+            userId,
+            title: visionResult.title,
+            bodyText: visionResult.bodyText,
+            petSummary: visionResult.petSummary,
+            photoUrls: photoUrls.slice(0, 3),
+            feelingIds: targetFeelings.map((f) => f.id),
+            createdAt: Date.now(),
+          }
+          setNarratives((prev) => [...prev, entry])
+          return entry
+        }
+      } catch {
+        // Fall through to template
+      }
     }
 
     // Template fallback
@@ -1295,6 +1328,7 @@ export function useStore(options?: { apiMode?: boolean }) {
     // User actions
     completeOnboarding,
     resetOnboarding,
+    bindPartner,
     dissolveRelationship,
     // Instance actions
     completeInstance,
@@ -1304,6 +1338,8 @@ export function useStore(options?: { apiMode?: boolean }) {
     respondWithFeedback,
     markSeen,
     createTask,
+    deleteTemplate,
+    updateTemplate,
     updateInstanceDate,
     saveDraftTask,
     promoteDraftToSent,

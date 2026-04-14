@@ -1,24 +1,24 @@
 import { useState } from 'react'
 import { X, RefreshCw, Send } from 'lucide-react'
 import type { Store } from '@/store'
-import type { RelayGenerateResult, RelayVersionType } from '@/types'
+import type { RelayVersionType } from '@/types'
 import { useCurrentUser } from '@/contexts/UserContext'
 import { COMPANION_CHARACTERS } from '@/lib/companion'
 import PetSvg from '@/components/pet/PetSvg'
-import { generateRelayVersions } from '@/api/emotion-relay'
-import { generateLocalRelayVersions } from '@/lib/emotion-relay'
+import { generateSmartRelay, type RelaySmartResult } from '@/api/emotion-relay'
+import { generateLocalSmartRelay } from '@/lib/emotion-relay'
 
 interface Props {
   store: Store
   onClose: () => void
 }
 
-type Phase = 'input' | 'generating' | 'select'
+type Phase = 'input' | 'generating' | 'preview'
 
-const VERSION_META: Record<RelayVersionType, { label: string; badge: string }> = {
-  gentle: { label: '温柔版', badge: '🌸' },
-  casual: { label: '轻松版', badge: '😊' },
-  direct: { label: '直球版', badge: '💘' },
+const TONE_LABELS: Record<RelayVersionType, { label: string; badge: string }> = {
+  gentle: { label: '温柔', badge: '🌸' },
+  casual: { label: '轻松', badge: '😊' },
+  direct: { label: '直球', badge: '💘' },
 }
 
 export function EmotionRelayOverlay({ store, onClose }: Props) {
@@ -29,17 +29,16 @@ export function EmotionRelayOverlay({ store, onClose }: Props) {
 
   const [phase, setPhase] = useState<Phase>('input')
   const [inputText, setInputText] = useState('')
-  const [versions, setVersions] = useState<RelayGenerateResult | null>(null)
-  const [selected, setSelected] = useState<RelayVersionType | null>(null)
+  const [result, setResult] = useState<RelaySmartResult | null>(null)
   const [isSending, setIsSending] = useState(false)
 
   async function handleGenerate() {
     if (!inputText.trim()) return
     setPhase('generating')
-    setSelected(null)
+    setResult(null)
 
     try {
-      const result = await generateRelayVersions(inputText.trim(), {
+      const smartResult = await generateSmartRelay(inputText.trim(), {
         senderName: user.name,
         receiverName: partner.name,
         companionName: companion.name,
@@ -47,31 +46,29 @@ export function EmotionRelayOverlay({ store, onClose }: Props) {
         relationType: store.space.relationType,
       })
 
-      if (result.fallback) {
-        const local = generateLocalRelayVersions(inputText.trim(), companion.name)
-        setVersions(local)
+      if (smartResult.fallback || !smartResult.text) {
+        const local = generateLocalSmartRelay(inputText.trim(), companion.name)
+        setResult(local)
       } else {
-        setVersions({ gentle: result.gentle, casual: result.casual, direct: result.direct })
+        setResult(smartResult)
       }
     } catch {
-      const local = generateLocalRelayVersions(inputText.trim(), companion.name)
-      setVersions(local)
+      const local = generateLocalSmartRelay(inputText.trim(), companion.name)
+      setResult(local)
     }
 
-    setPhase('select')
+    setPhase('preview')
   }
 
   function handleSend() {
-    if (!selected || !versions || isSending) return
+    if (!result || !result.text || isSending) return
     setIsSending(true)
-    const relayText = versions[selected]
-    store.sendRelay(currentUserId, partner.id, inputText.trim(), selected, relayText)
+    store.sendRelay(currentUserId, partner.id, inputText.trim(), result.tone, result.text)
     onClose()
   }
 
   function handleRegenerate() {
-    setVersions(null)
-    setSelected(null)
+    setResult(null)
     handleGenerate()
   }
 
@@ -107,7 +104,7 @@ export function EmotionRelayOverlay({ store, onClose }: Props) {
                 </div>
                 <div>
                   <h2 className="text-base font-semibold text-foreground">让{companion.name}帮你说</h2>
-                  <p className="text-xs text-muted-foreground">把你的心意转化为温暖的话~</p>
+                  <p className="text-xs text-muted-foreground">小橘会帮您选择最适合的表达方式~</p>
                 </div>
               </div>
 
@@ -134,7 +131,7 @@ export function EmotionRelayOverlay({ store, onClose }: Props) {
                     : 'bg-secondary/60 text-muted-foreground/40'
                 }`}
               >
-                生成表达
+                智能优化表达
               </button>
             </>
           )}
@@ -146,7 +143,7 @@ export function EmotionRelayOverlay({ store, onClose }: Props) {
                 <PetSvg animal={store.space.companion} expression="thinking" className="w-full h-full" />
               </div>
               <div className="flex items-center gap-1">
-                <span className="text-sm text-muted-foreground">{companion.name}正在帮你想</span>
+                <span className="text-sm text-muted-foreground">{companion.name}正在帮你优化表达</span>
                 <span className="flex gap-0.5">
                   <span className="w-1 h-1 rounded-full bg-muted-foreground/50 animate-typing-dot" />
                   <span className="w-1 h-1 rounded-full bg-muted-foreground/50 animate-typing-dot" style={{ animationDelay: '0.2s' }} />
@@ -156,49 +153,34 @@ export function EmotionRelayOverlay({ store, onClose }: Props) {
             </div>
           )}
 
-          {/* Phase 3: Version selection */}
-          {phase === 'select' && versions && (
+          {/* Phase 3: Preview & Send */}
+          {phase === 'preview' && result && (
             <>
-              {/* Original text reminder */}
+              {/* Original text */}
               <div className="mb-3 mt-1 p-3 rounded-xl bg-secondary/40 border border-border/20">
                 <p className="text-2xs text-muted-foreground/70 mb-1">你的原话</p>
                 <p className="text-xs text-foreground leading-relaxed">{inputText}</p>
               </div>
 
-              <h2 className="text-sm font-semibold text-foreground mb-3">选一个你喜欢的表达方式~</h2>
-
-              <div className="space-y-2.5 mb-4">
-                {(['gentle', 'casual', 'direct'] as RelayVersionType[]).map(type => {
-                  const meta = VERSION_META[type]
-                  const isSelected = selected === type
-                  return (
-                    <button
-                      key={type}
-                      onClick={() => setSelected(type)}
-                      className={`w-full text-left p-4 rounded-2xl border-2 transition-all ${
-                        isSelected
-                          ? 'border-primary bg-primary/5 scale-[1.02]'
-                          : 'border-border/30 bg-secondary/30 hover:border-border/50'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 mb-1.5">
-                        <span className="text-sm">{meta.badge}</span>
-                        <span className={`text-xs font-semibold ${isSelected ? 'text-primary' : 'text-muted-foreground'}`}>
-                          {meta.label}
-                        </span>
-                      </div>
-                      <p className="text-sm text-foreground leading-relaxed">{versions[type]}</p>
-                    </button>
-                  )
-                })}
+              {/* AI optimized result */}
+              <div className="mb-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-sm">{TONE_LABELS[result.tone].badge}</span>
+                  <span className="text-xs font-semibold text-primary">
+                    AI选择了{TONE_LABELS[result.tone].label}表达
+                  </span>
+                </div>
+                <div className="p-4 rounded-2xl border-2 border-primary bg-primary/5">
+                  <p className="text-sm text-foreground leading-relaxed">{result.text}</p>
+                </div>
               </div>
 
               <div className="space-y-2">
                 <button
                   onClick={handleSend}
-                  disabled={!selected || isSending}
+                  disabled={isSending}
                   className={`w-full py-3 rounded-2xl text-sm font-semibold flex items-center justify-center gap-2 transition-all ${
-                    selected && !isSending
+                    !isSending
                       ? 'bg-primary text-white active:scale-[0.98]'
                       : 'bg-secondary/60 text-muted-foreground/40'
                   }`}
@@ -212,7 +194,7 @@ export function EmotionRelayOverlay({ store, onClose }: Props) {
                   className="w-full py-2.5 rounded-2xl text-sm font-medium text-muted-foreground hover:bg-secondary/30 flex items-center justify-center gap-1.5 transition-colors"
                 >
                   <RefreshCw className="w-3.5 h-3.5" />
-                  <span>换一批</span>
+                  <span>换一种表达</span>
                 </button>
               </div>
             </>
