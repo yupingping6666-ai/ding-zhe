@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import type {
   TaskTemplate,
   TaskInstance,
@@ -26,6 +26,7 @@ import { generateWarmComment, generatePetComment } from '@/lib/ai-comments'
 import { generateDemoNarrativeEntry } from '@/lib/narrative'
 import * as narrativeApi from '@/api/narrative'
 import { generateVisionNarrative, isVisionAvailable } from '@/lib/vision-narrative'
+import { storage } from '@/lib/storage'
 
 // API integration (optional)
 import * as taskApi from '@/api/tasks'
@@ -286,17 +287,27 @@ export function useStore(options?: { apiMode?: boolean }) {
   const { apiMode = false } = options || {}
   const seed = createSeedData()
 
-  // Use lazy initialization to ensure seed data is only created once
-  const [templates, setTemplates] = useState<TaskTemplate[]>(() => seed.templates)
-  const [instances, setInstances] = useState<TaskInstance[]>(() => seed.instances)
+  // Use lazy initialization: prefer localStorage cache, fallback to seed data
+  const [templates, setTemplates] = useState<TaskTemplate[]>(() =>
+    storage.load<TaskTemplate[]>('templates') ?? seed.templates
+  )
+  const [instances, setInstances] = useState<TaskInstance[]>(() =>
+    storage.load<TaskInstance[]>('instances') ?? seed.instances
+  )
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'skip' } | null>(null)
-  const [users, setUsers] = useState<User[]>(USERS)
-  const [space, setSpace] = useState<RelationshipSpace>(INITIAL_SPACE)
+  const [users, setUsers] = useState<User[]>(() =>
+    storage.load<User[]>('users') ?? USERS
+  )
+  const [space, setSpace] = useState<RelationshipSpace>(() =>
+    storage.load<RelationshipSpace>('space') ?? INITIAL_SPACE
+  )
   const [isApiLoading, setIsApiLoading] = useState(false)
 
   // ---- Relay messages state ----
-  const [relayMessages, setRelayMessages] = useState<RelayMessage[]>([])
+  const [relayMessages, setRelayMessages] = useState<RelayMessage[]>(() =>
+    storage.load<RelayMessage[]>('relayMessages') ?? []
+  )
 
   // ---- Feelings state ----
   const FEELINGS_SEED: FeelingEntry[] = [
@@ -359,17 +370,24 @@ export function useStore(options?: { apiMode?: boolean }) {
     },
   ]
 
-  const [feelings, setFeelings] = useState<FeelingEntry[]>(FEELINGS_SEED)
+  const [feelings, setFeelings] = useState<FeelingEntry[]>(() =>
+    storage.load<FeelingEntry[]>('feelings') ?? FEELINGS_SEED
+  )
 
   // ---- Comments state ----
-  const [comments, setComments] = useState<Comment[]>([
+  const COMMENTS_SEED: Comment[] = [
     { id: 'comment-seed-1', entryId: 'feeling-1', content: '看起来今天是美好的一天！', author: 'ai', createdAt: Date.now() - 2 * 3600000 + 500 },
     { id: 'comment-seed-2', entryId: 'feeling-2', content: '抱抱你，一切都会好起来的 🤗', author: 'ai', createdAt: Date.now() - 5 * 3600000 + 500 },
     { id: 'comment-seed-3', entryId: 'feeling-3', content: '每个瞬间都值得被珍惜 💫', author: 'ai', createdAt: Date.now() - 8 * 3600000 + 500 },
-  ])
+  ]
+  const [comments, setComments] = useState<Comment[]>(() =>
+    storage.load<Comment[]>('comments') ?? COMMENTS_SEED
+  )
 
   // ---- Narratives state ----
-  const [narratives, setNarratives] = useState<NarrativeEntry[]>([])
+  const [narratives, setNarratives] = useState<NarrativeEntry[]>(() =>
+    storage.load<NarrativeEntry[]>('narratives') ?? []
+  )
 
   // Fetch from API when apiMode is enabled
   useEffect(() => {
@@ -411,6 +429,24 @@ export function useStore(options?: { apiMode?: boolean }) {
       setIsApiLoading(false)
     }).catch(() => setIsApiLoading(false))
   }, [apiMode])
+
+  // ---- localStorage auto-sync: persist state changes ----
+  const isInitialMount = useRef(true)
+  useEffect(() => {
+    // Skip the first render to avoid overwriting cache with initial state
+    if (isInitialMount.current) {
+      isInitialMount.current = false
+      return
+    }
+    storage.save('users', users)
+    storage.save('space', space)
+    storage.save('templates', templates)
+    storage.save('instances', instances)
+    storage.save('feelings', feelings)
+    storage.save('comments', comments)
+    storage.save('narratives', narratives)
+    storage.save('relayMessages', relayMessages)
+  }, [users, space, templates, instances, feelings, comments, narratives, relayMessages])
 
   const showToast = useCallback((message: string, type: 'success' | 'info' | 'skip' = 'info') => {
     setToast({ message, type })
@@ -669,6 +705,7 @@ export function useStore(options?: { apiMode?: boolean }) {
           templateId
         )
       }
+
       showToast('已发送给 TA', 'success')
     },
     [showToast, templates, addNotification]
@@ -811,7 +848,7 @@ export function useStore(options?: { apiMode?: boolean }) {
     showToast('已删除', 'info')
   }, [showToast])
 
-  const updateTemplate = useCallback((templateId: string, patch: Partial<Pick<TaskTemplate, 'name' | 'remindTime' | 'repeatRule' | 'weeklyDays' | 'category' | 'followUpIntensity'>>) => {
+  const updateTemplate = useCallback((templateId: string, patch: Partial<Pick<TaskTemplate, 'name' | 'remindTime' | 'repeatRule' | 'weeklyDays' | 'category' | 'followUpIntensity' | 'receiverId'>>) => {
     setTemplates((prev) => prev.map((t) => t.id === templateId ? { ...t, ...patch } : t))
     showToast('已更新', 'success')
   }, [showToast])
@@ -874,14 +911,11 @@ export function useStore(options?: { apiMode?: boolean }) {
       return u
     }))
     setSpace(prev => ({
-      ...INITIAL_SPACE,
+      ...prev,
       userIds: [userId, partnerId] as [string, string],
-      companion: prev.companion,
       createdAt: Date.now(),
-      petState: { ...INITIAL_SPACE.petState, interactionDate: getTodayDateString() },
-      anniversaries: [],
+      petState: { ...prev.petState, interactionDate: getTodayDateString() },
     }))
-    setRelayMessages([])
     showToast('配对成功！', 'success')
   }, [showToast])
 
@@ -894,6 +928,8 @@ export function useStore(options?: { apiMode?: boolean }) {
     setUsers((prev) => prev.map((u) => ({ ...u, partnerId: '' })))
     setSpace({ ...INITIAL_SPACE, anniversaries: [] })
     setRelayMessages([])
+    // Clear localStorage as relationship is intentionally dissolved
+    storage.clearAll()
     showToast('关系已解除', 'info')
   }, [apiMode, showToast])
 
@@ -1034,24 +1070,35 @@ export function useStore(options?: { apiMode?: boolean }) {
     .sort((a, b) => a.daysUntil - b.daysUntil)
     .slice(0, 5)
 
-  // Task summary for AI context
-  const aiTaskSummary = {
-    pendingTasks: instances
-      .filter((i) => i.status === 'pending' || i.status === 'awaiting' || i.status === 'deferred')
-      .slice(0, 5)
-      .map((i) => {
-        const tpl = templates.find((t) => t.id === i.templateId)
-        return tpl
-          ? { name: tpl.name, category: tpl.category, itemType: tpl.itemType, forPartner: tpl.receiverId !== tpl.creatorId }
-          : null
-      })
-      .filter((t): t is NonNullable<typeof t> => t !== null),
-    todayCompleted: todayCompletedCount,
-    todayTotal: todayTotalCount,
-    overdueCount: instances.filter(
-      (i) => (i.status === 'pending' || i.status === 'deferred') && i.scheduledTime < Date.now(),
-    ).length,
-  }
+  // Task summary for AI context (per-user filtered)
+  const getAiTaskSummary = useCallback((userId: string) => {
+    const userInstances = instances.filter((i) => {
+      const tpl = templates.find((t) => t.id === i.templateId)
+      return tpl && tpl.receiverId === userId
+    })
+    const userTodayInstances = userInstances.filter((inst) => {
+      const d = new Date(inst.scheduledTime)
+      const instDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+      return instDate === todayStr
+    })
+    return {
+      pendingTasks: userInstances
+        .filter((i) => i.status === 'pending' || i.status === 'awaiting' || i.status === 'deferred')
+        .slice(0, 5)
+        .map((i) => {
+          const tpl = templates.find((t) => t.id === i.templateId)
+          return tpl
+            ? { name: tpl.name, category: tpl.category, itemType: tpl.itemType, forPartner: tpl.receiverId !== tpl.creatorId }
+            : null
+        })
+        .filter((t): t is NonNullable<typeof t> => t !== null),
+      todayCompleted: userTodayInstances.filter((i) => i.status === 'completed').length,
+      todayTotal: userTodayInstances.length,
+      overdueCount: userInstances.filter(
+        (i) => (i.status === 'pending' || i.status === 'deferred') && i.scheduledTime < Date.now(),
+      ).length,
+    }
+  }, [instances, templates, todayStr])
 
   // Draft & feelings derived data
   const getDraftItems = useCallback(
@@ -1139,6 +1186,7 @@ export function useStore(options?: { apiMode?: boolean }) {
   const getPetComment = useCallback((feelingId: string): string | null => {
     const feeling = feelings.find((f) => f.id === feelingId)
     if (!feeling) return null
+    if (feeling.entryType === 'reminder') return null
     const companion = COMPANION_CHARACTERS[space.companion]
     const isDual = space.relationType !== 'self'
     const hasPhotos = !!(feeling.photoUrls && feeling.photoUrls.length > 0)
@@ -1301,7 +1349,7 @@ export function useStore(options?: { apiMode?: boolean }) {
     relationDays,
     todayAnniversaries,
     upcomingAnniversaries,
-    aiTaskSummary,
+    getAiTaskSummary,
     // Getters
     getTemplate,
     getReceivedItems,

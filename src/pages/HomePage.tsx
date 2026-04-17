@@ -5,9 +5,9 @@ import { ITEM_TYPE_CONFIG } from '@/types'
 import type { PetExpression } from '@/types'
 import { formatTime } from '@/lib/time'
 import type { Store } from '@/store'
-import { getUser } from '@/store'
 import { useCurrentUser } from '@/contexts/UserContext'
 import { COMPANION_CHARACTERS, getCompanionMessage } from '@/lib/companion'
+import { PetEmoji } from '@/components/PetEmoji'
 import { canInteract, getInteractionCooldownRemaining, PET_COOLDOWNS } from '@/lib/pet-state'
 import PetSvg from '@/components/pet/PetSvg'
 import { getTimeOfDay } from '@/lib/time-of-day'
@@ -454,7 +454,7 @@ export function HomePage({ store, userMode, onOpenDetail, onOpenFeelingDetail, o
           </div>
           <div className="flex items-start gap-3">
             <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-              <span className="text-sm">{character.avatar}</span>
+              <PetEmoji value={character.avatar} size="w-5 h-5" />
             </div>
             <p className="text-xs text-muted-foreground leading-relaxed flex-1">{aiComment}</p>
           </div>
@@ -536,6 +536,7 @@ export function HomePage({ store, userMode, onOpenDetail, onOpenFeelingDetail, o
                       key={inst.id}
                       instance={inst}
                       template={tpl}
+                      store={store}
                       onComplete={completeInstance}
                       onDefer={deferInstance}
                       onSkip={skipInstance}
@@ -564,6 +565,7 @@ export function HomePage({ store, userMode, onOpenDetail, onOpenFeelingDetail, o
                       key={inst.id}
                       instance={inst}
                       template={tpl}
+                      store={store}
                       onComplete={completeInstance}
                       onDefer={deferInstance}
                       onSkip={skipInstance}
@@ -662,6 +664,7 @@ export function HomePage({ store, userMode, onOpenDetail, onOpenFeelingDetail, o
                     key={inst.id}
                     instance={inst}
                     template={getTemplate(inst.templateId)}
+                    store={store}
                     onComplete={completeInstance}
                     onDefer={deferInstance}
                     onSkip={skipInstance}
@@ -694,6 +697,7 @@ export function HomePage({ store, userMode, onOpenDetail, onOpenFeelingDetail, o
                     <TaskCard
                       instance={inst}
                       template={getTemplate(inst.templateId)}
+                      store={store}
                       onComplete={completeInstance}
                       onDefer={deferInstance}
                       onSkip={skipInstance}
@@ -717,7 +721,7 @@ export function HomePage({ store, userMode, onOpenDetail, onOpenFeelingDetail, o
                   if (!tpl) return null
                   const typeConf = ITEM_TYPE_CONFIG[tpl.itemType]
                   const isExpanded = expandedUpcoming.has(inst.id)
-                  const sender = tpl.creatorId !== tpl.receiverId ? getUser(tpl.creatorId) : null
+                  const sender = tpl.creatorId !== tpl.receiverId ? store.getUserProfile(tpl.creatorId) : null
 
                   if (isExpanded) {
                     return (
@@ -725,6 +729,7 @@ export function HomePage({ store, userMode, onOpenDetail, onOpenFeelingDetail, o
                         key={inst.id}
                         instance={inst}
                         template={tpl}
+                        store={store}
                         onComplete={completeInstance}
                         onDefer={deferInstance}
                         onSkip={skipInstance}
@@ -812,7 +817,7 @@ export function HomePage({ store, userMode, onOpenDetail, onOpenFeelingDetail, o
           {sentItems.length === 0 ? (
             <section className="px-4 mt-8">
               <div className="text-center py-12">
-                <span className="text-4xl mb-3 block animate-float">{character.expressions.idle}</span>
+                <span className="block mb-3 animate-float"><PetEmoji value={character.expressions.idle} size="w-10 h-10" /></span>
                 <p className="text-sm font-bold text-foreground">{getCompanionMessage(character, 'empty_sent').text}</p>
                 <p className="text-xs text-muted-foreground mt-1.5">给TA创建一个关心或小任务吧</p>
               </div>
@@ -826,7 +831,7 @@ export function HomePage({ store, userMode, onOpenDetail, onOpenFeelingDetail, o
                     {sentWaiting.map((inst) => {
                       const tpl = getTemplate(inst.templateId)
                       if (!tpl) return null
-                      return <SentItemCard key={inst.id} instance={inst} template={tpl} onTapName={() => onOpenDetail(inst.templateId)} />
+                      return <SentItemCard key={inst.id} instance={inst} template={tpl} store={store} onTapName={() => onOpenDetail(inst.templateId)} />
                     })}
                   </div>
                 </section>
@@ -838,7 +843,7 @@ export function HomePage({ store, userMode, onOpenDetail, onOpenFeelingDetail, o
                     {sentProcessing.map((inst) => {
                       const tpl = getTemplate(inst.templateId)
                       if (!tpl) return null
-                      return <SentItemCard key={inst.id} instance={inst} template={tpl} onTapName={() => onOpenDetail(inst.templateId)} />
+                      return <SentItemCard key={inst.id} instance={inst} template={tpl} store={store} onTapName={() => onOpenDetail(inst.templateId)} />
                     })}
                   </div>
                 </section>
@@ -850,7 +855,7 @@ export function HomePage({ store, userMode, onOpenDetail, onOpenFeelingDetail, o
                     {sentDone.map((inst) => {
                       const tpl = getTemplate(inst.templateId)
                       if (!tpl) return null
-                      return <SentItemCard key={inst.id} instance={inst} template={tpl} onTapName={() => onOpenDetail(inst.templateId)} />
+                      return <SentItemCard key={inst.id} instance={inst} template={tpl} store={store} onTapName={() => onOpenDetail(inst.templateId)} />
                     })}
                   </div>
                 </section>
@@ -862,7 +867,7 @@ export function HomePage({ store, userMode, onOpenDetail, onOpenFeelingDetail, o
                     {sentFailed.map((inst) => {
                       const tpl = getTemplate(inst.templateId)
                       if (!tpl) return null
-                      return <SentItemCard key={inst.id} instance={inst} template={tpl} onTapName={() => onOpenDetail(inst.templateId)} />
+                      return <SentItemCard key={inst.id} instance={inst} template={tpl} store={store} onTapName={() => onOpenDetail(inst.templateId)} />
                     })}
                   </div>
                 </section>

@@ -14,7 +14,7 @@ export type RelationStatus = 'draft' | 'sent' | 'delivered' | 'seen' | 'responde
 export type CreateContentType = 'text-journal' | 'mood-capture' | 'photo-journal' | 'care' | 'todo' | 'confirm' | 'companion'
 
 // ---- New: Feeling entry type ----
-export type FeelingEntryType = 'text' | 'photo' | 'mood'
+export type FeelingEntryType = 'text' | 'photo' | 'mood' | 'reminder'
 
 // ---- New: Feeling entry (personal emotion/mood recording) ----
 export interface FeelingEntry {
@@ -26,6 +26,7 @@ export interface FeelingEntry {
   aboutPartnerId?: string   // 是否关于 TA（双人模式）
   photoUrl?: string         // 向后兼容：首张照片
   photoUrls?: string[]      // 多张照片（最多 9 张）
+  linkedTaskId?: string     // 关联的 TaskTemplate ID（提醒日记）
   createdAt: number
   isDraft: boolean          // 是否未发送（双人模式）
   isHidden?: boolean        // 是否隐藏（纪念页）
@@ -63,6 +64,7 @@ export interface ChatMessage {
   actionType?: ChatQuickAction
   isRelay?: boolean
   relayId?: string
+  taskCreated?: { name: string; time: string; receiverName: string }
 }
 
 export interface PetState {

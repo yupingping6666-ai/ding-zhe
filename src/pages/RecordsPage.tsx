@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { ITEM_TYPE_CONFIG } from '@/types'
 import { formatTime } from '@/lib/time'
 import type { Store } from '@/store'
-import { getUser } from '@/store'
 import { useCurrentUser } from '@/contexts/UserContext'
 import { ArrowLeft, CheckCircle2, SkipForward, XCircle, TrendingUp, Clock } from 'lucide-react'
 
@@ -169,8 +168,8 @@ export function RecordsPage({ store, onBack }: Props) {
                 if (!tpl) return null
                 const typeConf = ITEM_TYPE_CONFIG[tpl.itemType]
                 const otherUser = tab === 'received'
-                  ? (tpl.creatorId !== tpl.receiverId ? getUser(tpl.creatorId) : null)
-                  : getUser(tpl.receiverId)
+                  ? (tpl.creatorId !== tpl.receiverId ? store.getUserProfile(tpl.creatorId) : null)
+                  : store.getUserProfile(tpl.receiverId)
                 const icon = inst.status === 'completed'
                   ? <CheckCircle2 className="w-4 h-4 text-success" />
                   : inst.status === 'skipped'

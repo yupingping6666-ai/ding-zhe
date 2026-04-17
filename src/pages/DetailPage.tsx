@@ -10,9 +10,9 @@ import {
 import type { Category, RepeatRule, FollowUpIntensity } from '@/types'
 import { formatDelay, formatTime } from '@/lib/time'
 import type { Store } from '@/store'
-import { getUser } from '@/store'
 import { useCurrentUser } from '@/contexts/UserContext'
 import { COMPANION_CHARACTERS, getTimelineCompanionNote } from '@/lib/companion'
+import { PetEmoji } from '@/components/PetEmoji'
 import { ArrowLeft, Circle, CheckCircle2, Clock, SkipForward, XCircle, AlertCircle, MessageCircle } from 'lucide-react'
 
 interface Props {
@@ -33,6 +33,7 @@ export function DetailPage({ templateId, store, onBack }: Props) {
   const [editWeeklyDays, setEditWeeklyDays] = useState<number[]>([])
   const [editCategory, setEditCategory] = useState<Category>('other')
   const [editIntensity, setEditIntensity] = useState<FollowUpIntensity>('standard')
+  const [editReceiverId, setEditReceiverId] = useState('')
 
   function startEditing() {
     if (!template) return
@@ -41,6 +42,7 @@ export function DetailPage({ templateId, store, onBack }: Props) {
     setEditWeeklyDays([...template.weeklyDays])
     setEditCategory(template.category)
     setEditIntensity(template.followUpIntensity)
+    setEditReceiverId(template.receiverId)
     setEditing(true)
   }
 
@@ -51,6 +53,7 @@ export function DetailPage({ templateId, store, onBack }: Props) {
       weeklyDays: editWeeklyDays,
       category: editCategory,
       followUpIntensity: editIntensity,
+      receiverId: editReceiverId,
     })
     setEditing(false)
   }
@@ -70,7 +73,7 @@ export function DetailPage({ templateId, store, onBack }: Props) {
   const isCreator = template.creatorId === currentUserId
   const isReceiver = template.receiverId === currentUserId
   const isSelf = template.creatorId === template.receiverId
-  const otherUser = isCreator ? getUser(template.receiverId) : getUser(template.creatorId)
+  const otherUser = isCreator ? store.getUserProfile(template.receiverId) : store.getUserProfile(template.creatorId)
 
   // Current instance (deferred or awaiting)
   const currentInstance = store.instances.find(
@@ -163,6 +166,14 @@ export function DetailPage({ templateId, store, onBack }: Props) {
                 </span>
               )}
             </div>
+            <div>
+              <span className="text-xs text-muted-foreground block">提醒对象</span>
+              <span className="font-medium text-foreground">
+                {store.getUserProfile(template.receiverId).name}
+              </span>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3 text-sm mt-3">
             <div>
               <span className="text-xs text-muted-foreground block">跟进强度</span>
               <span className="font-medium text-foreground">{intensity.label}</span>
@@ -266,7 +277,7 @@ export function DetailPage({ templateId, store, onBack }: Props) {
           <div className="bg-card rounded-3xl border border-border/40 p-5">
             <div className="flex items-center gap-2 mb-3">
               <h3 className="text-sm font-semibold text-foreground">这次的时间线</h3>
-              <span className="text-sm">{character.avatar}</span>
+              <PetEmoji value={character.avatar} size="w-4 h-4" />
             </div>
             <div className="space-y-0">
               {currentInstance.actionLog.map((log, i) => {
@@ -384,6 +395,28 @@ export function DetailPage({ templateId, store, onBack }: Props) {
                 </select>
               </div>
             </div>
+
+            {/* Receiver */}
+            {store.users.length > 1 && (
+              <div>
+                <span className="text-xs text-muted-foreground block mb-1.5">提醒对象</span>
+                <div className="flex gap-1.5 flex-wrap">
+                  {store.users.map((u) => (
+                    <button
+                      key={u.id}
+                      onClick={() => setEditReceiverId(u.id)}
+                      className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                        editReceiverId === u.id
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-secondary text-secondary-foreground hover:bg-accent'
+                      }`}
+                    >
+                      {u.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Repeat */}
             <div>

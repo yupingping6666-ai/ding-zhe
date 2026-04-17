@@ -15,6 +15,8 @@ import {
   inferExpression,
 } from '@/lib/pet-chat'
 import { chatWithPet } from '@/api/pet-chat'
+import { detectReminderIntent, parseNaturalLanguage, applySmartDefaults } from '@/lib/nlp'
+import type { CreateTaskInput } from '@/types'
 import { EmotionRelayOverlay } from '@/components/EmotionRelayOverlay'
 import { RelayMessageBubble } from '@/components/RelayMessageBubble'
 import { SenderRelayBubble } from '@/components/RelayMessageBubble'
@@ -182,6 +184,25 @@ export function PetPage({ store, onTodayStory, onFeelingCreate, onBack }: PetPag
     setExpression('thinking')
     pushHistory('user', text)
 
+    // Step B: Detect reminder intent & parse task (sync, fast)
+    let taskInput: CreateTaskInput | null = null
+    let taskReceiverName = ''
+    if (detectReminderIntent(text)) {
+      const parsed = parseNaturalLanguage(text, store.users, currentUserId)
+      if (parsed.name) {
+        const defaults = applySmartDefaults(parsed)
+        const receiverId = parsed.receiver ?? currentUserId
+        const receiverUser = store.users.find(u => u.id === receiverId)
+        taskReceiverName = receiverUser?.name ?? store.getUserProfile(currentUserId).name
+        taskInput = {
+          ...defaults,
+          creatorId: currentUserId,
+          receiverId,
+          itemType: receiverId === currentUserId ? 'todo' : 'care',
+        }
+      }
+    }
+
     // Minimum visual delay
     const minDelay = new Promise(r => setTimeout(r, 600))
 
@@ -201,7 +222,7 @@ export function PetPage({ store, onTodayStory, onFeelingCreate, onBack }: PetPag
       partnerName: partner.name,
       partnerCity: partner.userCity,
       upcomingAnniversaries: store.upcomingAnniversaries,
-      taskSummary: store.aiTaskSummary,
+      taskSummary: store.getAiTaskSummary(currentUserId),
     }, wantsPhotos && recentPhotoUrls.length > 0 ? recentPhotoUrls : undefined)
 
     const [aiResult] = await Promise.all([aiPromise, minDelay])
@@ -228,8 +249,26 @@ export function PetPage({ store, onTodayStory, onFeelingCreate, onBack }: PetPag
       timestamp: Date.now(),
       expression: replyExpr,
     }])
+
+    // Step E: Create task after AI reply is shown
+    if (taskInput) {
+      store.createTask(taskInput)
+      setMessages(prev => [...prev, {
+        id: nextMsgId(),
+        role: 'system',
+        content: `${taskInput!.name} · ${taskInput!.remindTime} · ${taskReceiverName}`,
+        timestamp: Date.now(),
+        expression: 'achievement',
+        taskCreated: {
+          name: taskInput!.name,
+          time: taskInput!.remindTime,
+          receiverName: taskReceiverName,
+        },
+      }])
+    }
+
     setTimeout(() => setExpression(getTimeOfDay() === 'night' ? 'sleeping' : 'idle'), 5000)
-  }, [inputText, isTyping, replyContext, companion.name, store.currentPetState, store.relationDays, recentPhotoUrls])
+  }, [inputText, isTyping, replyContext, companion.name, store, currentUserId, recentPhotoUrls])
 
   // ---- Quick action ----
   const handleQuickAction = useCallback(async (action: ChatQuickAction) => {
@@ -266,7 +305,7 @@ export function PetPage({ store, onTodayStory, onFeelingCreate, onBack }: PetPag
         partnerName: advicePartner.name,
         partnerCity: advicePartner.userCity,
         upcomingAnniversaries: store.upcomingAnniversaries,
-        taskSummary: store.aiTaskSummary,
+        taskSummary: store.getAiTaskSummary(currentUserId),
       }, undefined) // Quick actions don't send photos
       const [aiResult] = await Promise.all([aiPromise, minDelay])
 
@@ -369,7 +408,19 @@ export function PetPage({ store, onTodayStory, onFeelingCreate, onBack }: PetPag
         {/* ---- Chat Messages ---- */}
         <div className="px-4 pt-3 pb-2 space-y-3">
           {messages.map((msg) =>
-            msg.role === 'user' ? (
+            msg.taskCreated ? (
+              <div key={msg.id} className="flex justify-center animate-msg-appear">
+                <div className="max-w-[85%] rounded-2xl px-4 py-2.5 bg-emerald-50 border border-emerald-200/50">
+                  <p className="text-2xs font-medium text-emerald-600 mb-1">✅ 已创建提醒</p>
+                  <p className="text-xs text-foreground">
+                    📋 {msg.taskCreated.name} · {msg.taskCreated.time}
+                  </p>
+                  <p className="text-2xs text-muted-foreground mt-0.5">
+                    👤 提醒{msg.taskCreated.receiverName}
+                  </p>
+                </div>
+              </div>
+            ) : msg.role === 'user' ? (
               <div key={msg.id} className="flex justify-end animate-msg-appear">
                 <div
                   className="max-w-[78%] rounded-2xl rounded-tr-md px-3.5 py-2.5"

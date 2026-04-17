@@ -1,6 +1,5 @@
 import { useState, useMemo } from 'react'
 import type { Store } from '@/store'
-import { getUser } from '@/store'
 import { useCurrentUser } from '@/contexts/UserContext'
 import {
   COMPANION_CHARACTERS,
@@ -24,7 +23,7 @@ type Step = 'welcome' | 'character' | 'relation' | 'invite' | 'done'
 
 export function OnboardingPage({ store, onComplete }: Props) {
   const currentUserId = useCurrentUser()
-  const user = getUser(currentUserId)
+  const user = store.getUserProfile(currentUserId)
   const [step, setStep] = useState<Step>('welcome')
   const [selectedAnimal, setSelectedAnimal] = useState<CompanionAnimal>(store.space.companion)
   const [selectedRelation, setSelectedRelation] = useState<RelationType>('couple')

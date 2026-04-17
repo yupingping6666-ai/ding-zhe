@@ -6,7 +6,7 @@
  */
 
 export function isImageAvatar(avatar: string): boolean {
-  return avatar.startsWith('data:') || avatar.startsWith('http') || avatar.startsWith('blob:')
+  return avatar.startsWith('data:') || avatar.startsWith('http') || avatar.startsWith('blob:') || avatar.startsWith('/')
 }
 
 interface UserAvatarProps {

@@ -13,11 +13,11 @@ import type {
   RepeatRule,
   FollowUpIntensity,
   ItemType,
+  User,
 } from '@/types'
-import { USERS } from '@/store'
 import { UserAvatar } from '@/components/UserAvatar'
 import { useCurrentUser } from '@/contexts/UserContext'
-import { Clock, Repeat, FolderOpen, Gauge, User, Tag } from 'lucide-react'
+import { Clock, Repeat, FolderOpen, Gauge, User as UserIcon, Tag } from 'lucide-react'
 
 interface Props {
   parsed: ParsedTask
@@ -25,11 +25,12 @@ interface Props {
   overrides: Partial<CreateTaskInput>
   onOverride: (field: string, value: unknown) => void
   userMode: 'single' | 'dual'
+  users: User[]
 }
 
 type EditField = 'time' | 'category' | 'repeat' | 'intensity' | 'receiver' | 'itemType' | null
 
-export function ConfirmationCard({ parsed, defaults, overrides, onOverride, userMode }: Props) {
+export function ConfirmationCard({ parsed, defaults, overrides, onOverride, userMode, users }: Props) {
   const [editing, setEditing] = useState<EditField>(null)
   const currentUserId = useCurrentUser()
 
@@ -45,7 +46,7 @@ export function ConfirmationCard({ parsed, defaults, overrides, onOverride, user
 
   const cat = CATEGORY_CONFIG[resolvedCategory]
   const typeConf = ITEM_TYPE_CONFIG[resolvedItemType]
-  const receiverUser = USERS.find(u => u.id === resolvedReceiverId)
+  const receiverUser = users.find(u => u.id === resolvedReceiverId)
   const isSelf = resolvedReceiverId === currentUserId
 
   // Determine if a field was auto-defaulted
@@ -95,7 +96,7 @@ export function ConfirmationCard({ parsed, defaults, overrides, onOverride, user
       <div className="px-4 pb-3 grid grid-cols-2 gap-2">
         {/* Receiver */}
         <FieldChip
-          icon={<User className="w-3.5 h-3.5" />}
+          icon={<UserIcon className="w-3.5 h-3.5" />}
           label={userMode === 'single' ? '自己' : (isSelf ? '自己' : (receiverUser ? <><span className="w-3.5 h-3.5 rounded-full overflow-hidden inline-flex items-center justify-center align-middle"><UserAvatar avatar={receiverUser.avatar} imgClass="w-3.5 h-3.5" /></span> {receiverUser.name}</> : '自己'))}
           inferred={!overrides.receiverId}
           active={editing === 'receiver'}
@@ -148,6 +149,7 @@ export function ConfirmationCard({ parsed, defaults, overrides, onOverride, user
         <InlineReceiverEditor
           value={resolvedReceiverId}
           currentUserId={currentUserId}
+          users={users}
           onChange={(v) => { onOverride('receiverId', v); setEditing(null) }}
         />
       )}
@@ -357,8 +359,8 @@ function InlineIntensityEditor({ value, onChange }: { value: FollowUpIntensity; 
   )
 }
 
-function InlineReceiverEditor({ value, currentUserId, onChange }: { value: string; currentUserId: string; onChange: (v: string) => void }) {
-  const partner = USERS.find(u => u.id !== currentUserId)
+function InlineReceiverEditor({ value, currentUserId, users, onChange }: { value: string; currentUserId: string; users: User[]; onChange: (v: string) => void }) {
+  const partner = users.find(u => u.id !== currentUserId)
   return (
     <div className="px-4 pb-3 animate-fade-in">
       <div className="flex gap-2">

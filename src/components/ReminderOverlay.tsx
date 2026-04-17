@@ -3,10 +3,10 @@ import { Button } from '@/components/ui/button'
 import { ITEM_TYPE_CONFIG } from '@/types'
 import { formatDelay, formatTime } from '@/lib/time'
 import type { TaskInstance, TaskTemplate } from '@/types'
-import { getUser } from '@/store'
 import { UserAvatar } from '@/components/UserAvatar'
 import { useCurrentUser } from '@/contexts/UserContext'
 import { COMPANION_CHARACTERS } from '@/lib/companion'
+import { PetEmoji } from '@/components/PetEmoji'
 import type { Store } from '@/store'
 import { X, Send } from 'lucide-react'
 
@@ -41,7 +41,7 @@ export function ReminderOverlay({ instance, template, store, onComplete, onDefer
   const isFollowUp = instance.followUpCount > 0
   const delayText = formatDelay(instance.deferredSince)
   const isSelf = template.creatorId === template.receiverId
-  const sender = !isSelf ? getUser(template.creatorId) : null
+  const sender = !isSelf ? store.getUserProfile(template.creatorId) : null
 
   const bgClass = template.itemType === 'care' ? 'gradient-care' :
     template.itemType === 'confirm' ? 'gradient-confirm' : 'gradient-todo'
@@ -66,8 +66,8 @@ export function ReminderOverlay({ instance, template, store, onComplete, onDefer
           {/* Colored badge area with companion */}
           <div className={`rounded-3xl p-5 mb-5 text-center relative ${bgClass}`}>
             {/* Companion floating in corner */}
-            <div className="absolute -top-3 -right-1 text-2xl animate-float">
-              {isFollowUp ? character.expressions.remind : character.expressions.idle}
+            <div className="absolute -top-3 -right-1 animate-float">
+              <PetEmoji value={isFollowUp ? character.expressions.remind : character.expressions.idle} size="w-8 h-8" />
             </div>
 
             <span className="text-5xl mb-3 block">{typeConf.emoji}</span>

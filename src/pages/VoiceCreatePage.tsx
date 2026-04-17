@@ -49,7 +49,7 @@ export function VoiceCreatePage({ store, userMode, onBack }: Props) {
   // When speech recognition is done, auto-parse and go to confirm
   useEffect(() => {
     if (speech.status === 'done' && speech.transcript) {
-      const result = parseNaturalLanguage(speech.transcript)
+      const result = parseNaturalLanguage(speech.transcript, store.users, currentUserId)
       setParsed(result)
       setOverrides({})
       const q = getFollowUpQuestion(result)
@@ -72,7 +72,7 @@ export function VoiceCreatePage({ store, userMode, onBack }: Props) {
       return
     }
     const timer = setTimeout(() => {
-      const result = parseNaturalLanguage(textInput)
+      const result = parseNaturalLanguage(textInput, store.users, currentUserId)
       setParsed(result)
       setOverrides({})
       // Don't auto-transition in text mode — user presses confirm
@@ -115,12 +115,14 @@ export function VoiceCreatePage({ store, userMode, onBack }: Props) {
 
   function handleCreate() {
     if (!defaults || !canCreate) return
+    const finalReceiverId = overrides.receiverId ?? (defaults.receiverId || currentUserId)
     const final: CreateTaskInput = {
       ...defaults,
       ...overrides,
       name: resolvedName,
       creatorId: currentUserId,
-      receiverId: overrides.receiverId ?? (defaults.receiverId || currentUserId),
+      receiverId: finalReceiverId,
+      itemType: overrides.itemType ?? (finalReceiverId === currentUserId ? 'todo' : 'care'),
     }
     store.createTask(final)
     onBack()
@@ -312,6 +314,7 @@ export function VoiceCreatePage({ store, userMode, onBack }: Props) {
                   overrides={overrides}
                   onOverride={handleOverride}
                   userMode={userMode}
+                  users={store.users}
                 />
               </div>
             )}
@@ -385,6 +388,7 @@ export function VoiceCreatePage({ store, userMode, onBack }: Props) {
                 overrides={overrides}
                 onOverride={handleOverride}
                 userMode={userMode}
+                users={store.users}
               />
             </div>
 

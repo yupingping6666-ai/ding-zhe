@@ -12,6 +12,8 @@ import type { Store } from '@/store'
 import { getPartner } from '@/store'
 import { UserAvatar } from '@/components/UserAvatar'
 import { useCurrentUser } from '@/contexts/UserContext'
+import { COMPANION_CHARACTERS } from '@/lib/companion'
+import { PetEmoji } from '@/components/PetEmoji'
 import { ArrowLeft, Camera, MapPin, Video, X, Search, ChevronRight, Loader2, Navigation } from 'lucide-react'
 
 interface Props {
@@ -319,7 +321,7 @@ function SingleModeForm({ store, preset, onBack }: { store: Store; preset?: stri
 
       {/* Pet suggestion banner */}
       <div className="mx-4 mb-4 px-4 py-3 bg-amber-50 rounded-2xl border border-amber-200/50 flex items-center gap-3">
-        <span className="text-xl">🐱</span>
+        <PetEmoji value={COMPANION_CHARACTERS[store.space.companion].avatar} size="w-6 h-6" />
         <div className="flex-1 min-w-0">
           <p className="text-xs text-amber-700">记录一下吧，让TA也看到你的这一刻</p>
         </div>

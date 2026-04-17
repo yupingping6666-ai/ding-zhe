@@ -6,6 +6,7 @@ import { PhoneFrame } from '@/components/PhoneFrame'
 import { UserAvatar } from '@/components/UserAvatar'
 import { AuthScreen } from '@/components/auth/AuthScreen'
 import { COMPANION_CHARACTERS } from '@/lib/companion'
+import { PetEmoji } from '@/components/PetEmoji'
 
 function App() {
   const { isAuthenticated, isLoading } = useApi()
@@ -80,7 +81,7 @@ function App() {
       <UserContext.Provider value={singleUser.id}>
         <div className="flex flex-col items-center gap-3">
           <div className="flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-card border border-border/50 shadow-card-default">
-            <span className="text-lg">{character.avatar}</span>
+            <PetEmoji value={character.avatar} size="w-6 h-6" />
             <span className="text-sm font-bold text-foreground">{singleUser.name}的视角</span>
           </div>
           <PhoneFrame store={store} userMode={userMode} />

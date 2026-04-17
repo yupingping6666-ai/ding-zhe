@@ -6,6 +6,10 @@ import {
   NOISE_PARTICLES,
   FUZZY_TIME_MAP,
   COMBINED_DATETIME,
+  REMINDER_INTENT_SIGNALS,
+  ANTI_INTENT_PATTERNS,
+  RECEIVER_PREFIXES,
+  PARTNER_ALIASES,
   cnNumToDigit,
 } from '@/lib/nlp-dictionaries'
 
@@ -384,9 +388,93 @@ function extractName(residual: string, originalInput: string, category: Category
   return name
 }
 
+// ========== Reminder Intent Detection ==========
+
+/**
+ * Detect whether user input expresses "create a reminder" intent.
+ * Must be called on normalized text BEFORE NOISE_PARTICLES cleanup.
+ */
+export function detectReminderIntent(input: string): boolean {
+  const normalized = normalize(input)
+  // Anti-patterns take priority: if any matches, this is NOT a creation intent
+  for (const anti of ANTI_INTENT_PATTERNS) {
+    if (normalized.includes(anti)) return false
+  }
+  // Check longest signals first to avoid partial matches
+  const sorted = [...REMINDER_INTENT_SIGNALS].sort((a, b) => b.length - a.length)
+  for (const signal of sorted) {
+    if (normalized.includes(signal)) return true
+  }
+  return false
+}
+
+// ========== Receiver Extraction ==========
+
+interface ReceiverResult {
+  receiverId: string | null
+  remaining: string
+}
+
+/**
+ * Extract receiver from text by matching user names or partner aliases after prefix patterns.
+ * e.g. "提醒小于明天吃药" → { receiverId: 'user-2', remaining: '明天吃药' }
+ * e.g. "提醒老公扫地" → { receiverId: 'user-2', remaining: '扫地' } (when currentUserId is user-1)
+ */
+export function extractReceiver(
+  input: string,
+  users: { id: string; name: string }[],
+  currentUserId?: string,
+): ReceiverResult {
+  // Sort users by name length desc (prevent short name matching before long name)
+  const sortedUsers = [...users].sort((a, b) => b.name.length - a.name.length)
+  // Sort prefixes by length desc (match "帮我提醒" before "提醒")
+  const sortedPrefixes = [...RECEIVER_PREFIXES].sort((a, b) => b.length - a.length)
+
+  // 1) Try exact user name match: "提醒小于..."
+  for (const prefix of sortedPrefixes) {
+    for (const user of sortedUsers) {
+      const pattern = prefix + user.name
+      const idx = input.indexOf(pattern)
+      if (idx !== -1) {
+        const remaining = input.slice(0, idx) + input.slice(idx + pattern.length)
+        return { receiverId: user.id, remaining: remaining.trim() }
+      }
+    }
+  }
+
+  // 2) Try partner alias match with prefix: "提醒老公..." → resolve to the OTHER user
+  if (currentUserId && users.length > 1) {
+    const partner = users.find(u => u.id !== currentUserId)
+    if (partner) {
+      const sortedAliases = [...PARTNER_ALIASES].sort((a, b) => b.length - a.length)
+      // 2a) prefix + alias: "提醒老公...", "通知老公..."
+      for (const prefix of sortedPrefixes) {
+        for (const alias of sortedAliases) {
+          const pattern = prefix + alias
+          const idx = input.indexOf(pattern)
+          if (idx !== -1) {
+            const remaining = input.slice(0, idx) + input.slice(idx + pattern.length)
+            return { receiverId: partner.id, remaining: remaining.trim() }
+          }
+        }
+      }
+      // 2b) bare alias without prefix: "老公打扫卫生" → also resolve to partner
+      for (const alias of sortedAliases) {
+        const idx = input.indexOf(alias)
+        if (idx !== -1) {
+          const remaining = input.slice(0, idx) + input.slice(idx + alias.length)
+          return { receiverId: partner.id, remaining: remaining.trim() }
+        }
+      }
+    }
+  }
+
+  return { receiverId: null, remaining: input }
+}
+
 // ========== Main Parser ==========
 
-export function parseNaturalLanguage(input: string): ParsedTask {
+export function parseNaturalLanguage(input: string, users?: { id: string; name: string }[], currentUserId?: string): ParsedTask {
   const empty: ParsedTask = {
     name: '',
     time: null,
@@ -406,6 +494,14 @@ export function parseNaturalLanguage(input: string): ParsedTask {
   let normalized = normalize(trimmed)
   // Convert Chinese numbers in time expressions to digits
   normalized = cnTimeToDigit(normalized)
+
+  // Stage -1: Extract receiver from text (before any other extraction)
+  let receiver: string | null = null
+  if (users && users.length > 0) {
+    const receiverResult = extractReceiver(normalized, users, currentUserId)
+    receiver = receiverResult.receiverId
+    normalized = receiverResult.remaining
+  }
 
   // Stage 0: Extract combined date+time (今晚, 明早, etc.)
   // Combined only sets dateContext; its time is a fallback used only if no explicit time is found
@@ -469,7 +565,7 @@ export function parseNaturalLanguage(input: string): ParsedTask {
       repeat: repeatResult.found,
       category: category !== null,
     },
-    receiver: null,
+    receiver,
     itemType: null,
   }
 }
@@ -524,7 +620,7 @@ export function applySmartDefaults(parsed: ParsedTask): CreateTaskInput {
     scheduledDateOffset,
     specificDate,
     creatorId: '',   // will be set from UI context
-    receiverId: '',  // will be set from UI context
+    receiverId: parsed.receiver || '',  // from NLP extraction, UI can override
     note: '',
   }
 }

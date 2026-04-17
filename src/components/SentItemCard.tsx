@@ -1,13 +1,14 @@
 import { ITEM_TYPE_CONFIG } from '@/types'
 import { formatTime } from '@/lib/time'
 import type { TaskInstance, TaskTemplate, RelationStatus } from '@/types'
-import { getUser } from '@/store'
+import type { Store } from '@/store'
 import { UserAvatar } from '@/components/UserAvatar'
 import { CheckCircle2, Clock, MessageCircle, Eye, Send, Hourglass } from 'lucide-react'
 
 interface Props {
   instance: TaskInstance
   template: TaskTemplate
+  store: Store
   onTapName?: () => void
 }
 
@@ -24,9 +25,9 @@ function getStepIndex(status: RelationStatus): number {
   return idx >= 0 ? idx : 0
 }
 
-export function SentItemCard({ instance, template, onTapName }: Props) {
+export function SentItemCard({ instance, template, store, onTapName }: Props) {
   const typeConf = ITEM_TYPE_CONFIG[template.itemType]
-  const receiver = getUser(template.receiverId)
+  const receiver = store.getUserProfile(template.receiverId)
 
   const isActive = instance.status === 'pending' || instance.status === 'awaiting' || instance.status === 'deferred'
   const isDone = instance.status === 'completed'

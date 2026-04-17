@@ -118,7 +118,46 @@ export const COMBINED_DATETIME: Record<string, {
 
 /** Noise particles to strip from the residual to get the task name */
 export const NOISE_PARTICLES = [
-  '提醒我', '记得', '别忘了', '帮我', '要记得',
+  '提醒我', '记得', '别忘了', '帮我', '要记得', '通知',
   '要', '去', '得', '的', '把', '让我', '该',
   '一下', '一定',
+]
+
+/** Signals that indicate "create a reminder" intent (checked before NOISE_PARTICLES cleanup) */
+export const REMINDER_INTENT_SIGNALS = [
+  '提醒', '提醒我', '记得', '别忘了', '帮我提醒',
+  '要记得', '别忘', '通知',
+]
+
+/**
+ * Anti-intent patterns: if ANY of these appear in the text,
+ * suppress reminder-creation intent even if a signal word matches.
+ * Covers: modification, cancellation, inquiry, and conversational uses.
+ */
+export const ANTI_INTENT_PATTERNS = [
+  // Modify existing reminder
+  '改提醒', '修改提醒', '调整提醒', '更改提醒',
+  '提醒改', '提醒调', '提醒换',
+  // Cancel / delete / withdraw existing reminder
+  '取消提醒', '删除提醒', '删掉提醒', '关掉提醒', '关闭提醒',
+  '撤回提醒', '撤销提醒', '收回提醒',
+  '提醒取消', '提醒删', '提醒关', '提醒撤',
+  // Asking about existing reminder
+  '提醒时间', '提醒设了', '提醒是几', '提醒怎么',
+  // Meta-talk about reminders
+  '提醒太', '提醒多', '提醒少', '有提醒', '哪些提醒', '几个提醒',
+  // "记得" in conversational (non-intent) context
+  '我记得', '不记得', '还记得', '你记得',
+  // "帮我设置" ≠ "帮我设提醒"
+  '帮我设置',
+]
+
+/** Prefixes used to extract receiver name (e.g. "提醒小于" → receiver is 小于) */
+export const RECEIVER_PREFIXES = ['帮我提醒', '提醒', '通知', '让', '叫', '催']
+
+/** Relationship aliases that refer to "my partner" (the other user in dual mode) */
+export const PARTNER_ALIASES = [
+  '老公', '老婆', '男朋友', '女朋友', '男友', '女友',
+  '对象', '另一半', '爱人', '先生', '太太', '媳妇',
+  '宝宝', '亲爱的', '老伴',
 ]

@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button'
 import { ITEM_TYPE_CONFIG } from '@/types'
 import { formatDelay, formatTime, formatDateLabel } from '@/lib/time'
 import type { TaskInstance, TaskTemplate } from '@/types'
-import { getUser } from '@/store'
+import type { Store } from '@/store'
 import { UserAvatar } from '@/components/UserAvatar'
 import { useCurrentUser } from '@/contexts/UserContext'
 import { Clock, ChevronDown, Send, Calendar, Date as DateIcon } from 'lucide-react'
@@ -11,6 +11,7 @@ import { Clock, ChevronDown, Send, Calendar, Date as DateIcon } from 'lucide-rea
 interface Props {
   instance: TaskInstance
   template: TaskTemplate | undefined
+  store: Store
   onComplete: (id: string) => void
   onDefer: (id: string, mins: number) => void
   onSkip: (id: string) => void
@@ -27,7 +28,7 @@ const DEFER_OPTIONS = [
   { label: '1 小时后', mins: 60 },
 ]
 
-export function TaskCard({ instance, template, onComplete, onDefer, onSkip, onCantDo, onFeedback, onTapName, onDateChange, variant }: Props) {
+export function TaskCard({ instance, template, store, onComplete, onDefer, onSkip, onCantDo, onFeedback, onTapName, onDateChange, variant }: Props) {
   const [showDefer, setShowDefer] = useState(false)
   const [showDatePicker, setShowDatePicker] = useState(false)
   const [feedbackText, setFeedbackText] = useState('')
@@ -42,7 +43,7 @@ export function TaskCard({ instance, template, onComplete, onDefer, onSkip, onCa
   const delayText = formatDelay(instance.deferredSince)
   const isSelf = template.creatorId === template.receiverId
   const sender = !isSelf && template.creatorId !== currentUserId
-    ? getUser(template.creatorId)
+    ? store.getUserProfile(template.creatorId)
     : null
 
   // Relationship-oriented sender label

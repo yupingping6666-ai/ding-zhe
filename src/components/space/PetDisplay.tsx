@@ -1,4 +1,5 @@
 import type { PetMood } from '@/types'
+import { isImageExpression } from '@/components/PetEmoji'
 
 interface PetDisplayProps {
   expression: string
@@ -13,6 +14,12 @@ const SIZE_CLASSES = {
   lg: 'text-6xl',
 }
 
+const IMG_SIZE_CLASSES = {
+  sm: 'w-12 h-12',
+  md: 'w-24 h-24',
+  lg: 'w-32 h-32',
+}
+
 function getMoodAnimation(mood: PetMood): string {
   switch (mood) {
     case 'happy': return 'animate-pet-happy'
@@ -24,15 +31,15 @@ function getMoodAnimation(mood: PetMood): string {
 }
 
 export function PetDisplay({ expression, mood, size = 'md', onClick }: PetDisplayProps) {
-  const sizeClass = SIZE_CLASSES[size]
   const animClass = getMoodAnimation(mood)
+  const isImage = isImageExpression(expression)
 
   return (
     <button
       type="button"
       onClick={onClick}
       className={`
-        ${sizeClass} ${animClass}
+        ${isImage ? '' : SIZE_CLASSES[size]} ${animClass}
         leading-none cursor-pointer select-none
         transition-transform duration-200
         hover:scale-110 active:scale-95
@@ -40,7 +47,11 @@ export function PetDisplay({ expression, mood, size = 'md', onClick }: PetDispla
       `}
       aria-label="Pet companion"
     >
-      {expression}
+      {isImage ? (
+        <img src={expression} alt="" className={`${IMG_SIZE_CLASSES[size]} object-contain`} draggable={false} />
+      ) : (
+        expression
+      )}
     </button>
   )
 }

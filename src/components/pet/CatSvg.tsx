@@ -471,8 +471,8 @@ function renderEffects(expression: PetExpression): React.ReactNode {
     case 'empty':
       return (
         <g opacity="0.4">
-          <text x="28" y="165" fontSize="14" fill="#999">🐱</text>
-          <text x="155" y="170" fontSize="14" fill="#999">🐱</text>
+          <image href={catIdle} x="18" y="145" width="28" height="28" />
+          <image href={catIdle} x="145" y="150" width="28" height="28" />
         </g>
       )
     
@@ -488,3 +488,4 @@ function renderEffects(expression: PetExpression): React.ReactNode {
       return null
   }
 }
+

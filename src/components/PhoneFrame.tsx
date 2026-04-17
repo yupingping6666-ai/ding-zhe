@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import type { Store } from '@/store'
 import { useCurrentUser } from '@/contexts/UserContext'
 import { COMPANION_CHARACTERS } from '@/lib/companion'
+import { PetEmoji } from '@/components/PetEmoji'
 import { HomePage } from '@/pages/HomePage'
 import { CreatePage } from '@/pages/CreatePage'
 import { VoiceCreatePage } from '@/pages/VoiceCreatePage'
@@ -125,7 +126,7 @@ export function PhoneFrame({ store, userMode }: PhoneFrameProps) {
       {/* Status bar with user & companion indicator */}
       <div className="flex items-center justify-between px-8 pt-3 pb-1">
         <div className="flex items-center gap-1.5">
-          <span className="text-sm">{character.avatar}</span>
+          <PetEmoji value={character.avatar} size="w-4 h-4" />
           <span className="text-xs font-semibold text-foreground">{user.name}</span>
         </div>
         <div className="flex items-center gap-1">

@@ -3,6 +3,19 @@
 // Characters are "companion assistants" that help convey reminders, status,
 // and emotional feedback between users.
 
+// Cat image assets (Vite resolves these to URL strings)
+import catIdle from '@/assets/pets/cat/idle.png'
+import catHappy from '@/assets/pets/cat/happy.png'
+import catAchievement from '@/assets/pets/cat/achievement.png'
+import catPlaying from '@/assets/pets/cat/playing.png'
+import catNotification from '@/assets/pets/cat/notification.png'
+import catAngry from '@/assets/pets/cat/angry.png'
+import catSleeping from '@/assets/pets/cat/sleeping.png'
+import catLove from '@/assets/pets/cat/love.png'
+import catStanding from '@/assets/pets/cat/standing.png'
+import catCurious from '@/assets/pets/cat/curious.png'
+import catPawIcon from '@/assets/pets/cat/paw-icon.png'
+
 export type CompanionAnimal = 'dog' | 'cat' | 'bear' | 'rabbit' | 'penguin' | 'fox' | 'hamster' | 'duck'
 
 export type RelationType = 'couple' | 'spouse' | 'family' | 'parent_child' | 'roommate' | 'friend'
@@ -47,18 +60,18 @@ export const COMPANION_CHARACTERS: Record<CompanionAnimal, CompanionCharacter> =
   cat: {
     id: 'cat',
     name: '小橘',
-    avatar: '🐱',
+    avatar: catIdle,
     expressions: {
-      idle: '🐱',
-      happy: '😺',
-      celebrate: '🎉😸',
-      waiting: '🐈',
-      remind: '🐾',
-      sad: '😿',
-      sleeping: '😽',
-      love: '😻',
-      encourage: '💪😼',
-      thinking: '😾',
+      idle: catIdle,
+      happy: catHappy,
+      celebrate: catAchievement,
+      waiting: catPlaying,
+      remind: catNotification,
+      sad: catAngry,
+      sleeping: catSleeping,
+      love: catLove,
+      encourage: catStanding,
+      thinking: catCurious,
     },
   },
   bear: {

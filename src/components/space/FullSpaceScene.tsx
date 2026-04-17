@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { PetState, PetInteractionType, Anniversary } from '@/types'
 import type { CompanionCharacter } from '@/lib/companion'
 import { getPetMoodExpression, getInteractionResponse } from '@/lib/companion'
+import { PetEmoji } from '@/components/PetEmoji'
 import { canInteract, PET_COOLDOWNS } from '@/lib/pet-state'
 import { getTimeOfDay } from '@/lib/time-of-day'
 import { getSpaceNarrative } from '@/lib/narrative'
@@ -70,7 +71,7 @@ export function FullSpaceScene({
         {/* Floating heart on interaction */}
         {feedback && (
           <div className="absolute top-6 left-1/2 -translate-x-1/2 animate-heart-pop">
-            <span className="text-lg">{feedback.emoji}</span>
+            <PetEmoji value={feedback.emoji} size="w-6 h-6" />
           </div>
         )}
 

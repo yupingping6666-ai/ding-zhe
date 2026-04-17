@@ -98,7 +98,10 @@ export function FeelingDetailPage({ store, feelingId, currentUserId, onBack, onO
   const entryTypeLabel =
     entry.entryType === 'photo' ? '照片记录'
     : entry.entryType === 'mood' ? '瞬间感受'
+    : entry.entryType === 'reminder' ? '提醒记录'
     : '记录'
+
+  const isReminder = entry.entryType === 'reminder'
 
   return (
     <div className="pb-8">
@@ -118,7 +121,7 @@ export function FeelingDetailPage({ store, feelingId, currentUserId, onBack, onO
             >
               <Check className="w-5 h-5" />
             </button>
-          ) : (
+          ) : !isReminder && (
             <>
               <button
                 onClick={startEdit}
@@ -255,8 +258,8 @@ export function FeelingDetailPage({ store, feelingId, currentUserId, onBack, onO
           return <PetCommentLine comment={petComment} className="py-1" />
         })()}
 
-        {/* Narrative CTA / Result */}
-        {!editing && (
+        {/* Narrative CTA / Result - hide for reminder entries */}
+        {!editing && !isReminder && (
           narrative ? (
             <div className="animate-fade-in space-y-2">
               <div className="rounded-2xl bg-gradient-to-br from-amber-50/80 to-orange-50/60 border border-amber-200/40 p-4">

@@ -1,6 +1,7 @@
 import type { CompanionAnimal } from '@/lib/companion'
 import type { PetExpression } from '@/types'
 import { COMPANION_CHARACTERS } from '@/lib/companion'
+import { PetEmoji, isImageExpression } from '@/components/PetEmoji'
 import CatPng from './CatPng'
 import DogSvg from './DogSvg'
 import BearSvg from './BearSvg'
@@ -55,7 +56,11 @@ export default function PetSvg({ animal, expression, className, blink }: PetSvgP
 
   return (
     <div className={`flex items-center justify-center ${className || ''}`}>
-      <span className="animate-pet-breathe" style={{ fontSize: '4rem' }}>{emoji}</span>
+      {isImageExpression(emoji) ? (
+        <PetEmoji value={emoji} size="w-16 h-16" className="animate-pet-breathe" />
+      ) : (
+        <span className="animate-pet-breathe" style={{ fontSize: '4rem' }}>{emoji}</span>
+      )}
     </div>
   )
 }
