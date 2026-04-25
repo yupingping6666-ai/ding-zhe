@@ -127,60 +127,21 @@ export async function createTask(data: {
 export async function updateInstanceStatus(
   instanceId: string,
   status: string,
-  feedback?: string
+  feedback?: string,
+  userId?: string
 ) {
-  const now = Date.now()
-  const updates: Record<string, any> = { status }
-  const setClauses: string[] = ['status = $1']
-  const values: any[] = [status]
-  let paramIndex = 2
+  // Use single CASE-based UPDATE for simplicity
+  // If userId is provided, restrict to instances belonging to that user
+  const whereClause = userId
+    ? `WHERE id = $3 AND template_id IN (SELECT id FROM task_templates WHERE creator_id = $4 OR receiver_id = $4)`
+    : `WHERE id = $3`
+  const params = userId
+    ? [status, feedback, instanceId, userId]
+    : [status, feedback, instanceId]
 
-  // Add status-specific fields
-  if (status === 'completed') {
-    setClauses.push(`completed_at = $${paramIndex}`)
-    values.push(new Date(now))
-    paramIndex++
-    setClauses.push(`relation_status = 'responded'`)
-  } else if (status === 'skipped') {
-    setClauses.push(`skipped_at = $${paramIndex}`)
-    values.push(new Date(now))
-    paramIndex++
-    setClauses.push(`relation_status = 'responded'`)
-  } else if (status === 'deferred') {
-    setClauses.push(`deferred_since = $${paramIndex}`)
-    values.push(new Date(now))
-    paramIndex++
-  }
-
-  if (feedback) {
-    setClauses.push(`feedback = $${paramIndex}`)
-    values.push(feedback)
-    paramIndex++
-  }
-
-  // Add instance ID
-  setClauses.push(`updated_at = $${paramIndex}`)
-  values.push(new Date(now))
-  paramIndex++
-  values.push(instanceId)
-
-  // Append action log
-  const actionNote = feedback || status
-  const actionEntry = JSON.stringify({
-    timestamp: now,
-    action: status === 'completed' ? 'user_completed' : status === 'skipped' ? 'user_skipped' : status === 'deferred' ? 'user_deferred' : status,
-    note: actionNote,
-  })
-
-  setClauses.unshift(`action_log = action_log || $${paramIndex + 1}::jsonb`)
-  values.push(actionEntry, instanceId)
-
-  const query = `UPDATE task_instances SET ${setClauses.join(', ')} WHERE id = $${paramIndex + 2} RETURNING *`
-
-  // Simplified: use positional params
   const result = await pool.query(
     `UPDATE task_instances
-     SET status = $1, updated_at = NOW(),
+     SET status = $1,
          completed_at = CASE WHEN $1 = 'completed' THEN NOW() ELSE completed_at END,
          skipped_at = CASE WHEN $1 = 'skipped' THEN NOW() ELSE skipped_at END,
          deferred_since = CASE WHEN $1 = 'deferred' THEN NOW() ELSE deferred_since END,
@@ -196,9 +157,9 @@ export async function updateInstanceStatus(
            END,
            'note', COALESCE($2, $1::text)
          )
-     WHERE id = $3
+     ${whereClause}
      RETURNING *`,
-    [status, feedback, instanceId]
+    params
   )
 
   return result.rows[0]

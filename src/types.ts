@@ -33,6 +33,7 @@ export interface FeelingEntry {
   hiddenPhotoIndices?: number[]  // 单独隐藏的照片索引
   location?: { lat: number; lng: number; name?: string }
   mediaTypes?: ('image' | 'video')[]  // 与 photoUrls 平行，标记每个 URL 类型
+  likedBy?: string[]          // 点赞用户的 userId 数组
 }
 
 // ---- Comment (for photo wall) ----

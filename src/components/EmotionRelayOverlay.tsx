@@ -24,6 +24,12 @@ const TONE_LABELS: Record<RelayVersionType, { label: string; badge: string }> = 
 export function EmotionRelayOverlay({ store, onClose }: Props) {
   const currentUserId = useCurrentUser()
   const user = store.getUserProfile(currentUserId)
+
+  if (!user.partnerId) {
+    onClose()
+    return null
+  }
+
   const partner = store.getUserProfile(user.partnerId)
   const companion = COMPANION_CHARACTERS[store.space.companion]
 

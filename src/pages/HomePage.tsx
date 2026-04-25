@@ -227,7 +227,7 @@ export function HomePage({ store, userMode, onOpenDetail, onOpenFeelingDetail, o
       const count = feelingCount + taskActionCount + relayCount
       return { label, count, maxCount: 5 }
     })
-  }, [store, currentUserId])
+  }, [store.feelings, store.instances, store.relayMessages, currentUserId])
 
   // AI feedback based on today's activity
   const aiComment = useMemo(() => {
@@ -498,7 +498,8 @@ export function HomePage({ store, userMode, onOpenDetail, onOpenFeelingDetail, o
               <h2 className="text-sm font-bold text-foreground mb-3">未发送</h2>
               <div className="space-y-2">
                 {store.getDraftItems(currentUserId).map((inst) => {
-                  const tpl = store.getTemplate(inst.templateId)!
+                  const tpl = store.getTemplate(inst.templateId)
+                  if (!tpl) return null
                   return (
                     <div
                       key={inst.id}
@@ -530,7 +531,8 @@ export function HomePage({ store, userMode, onOpenDetail, onOpenFeelingDetail, o
               </div>
               <div className="space-y-2">
                 {selfPending.map((inst) => {
-                  const tpl = store.getTemplate(inst.templateId)!
+                  const tpl = store.getTemplate(inst.templateId)
+                  if (!tpl) return null
                   return (
                     <TaskCard
                       key={inst.id}
@@ -559,7 +561,8 @@ export function HomePage({ store, userMode, onOpenDetail, onOpenFeelingDetail, o
               </div>
               <div className="space-y-2">
                 {selfDone.map((inst) => {
-                  const tpl = store.getTemplate(inst.templateId)!
+                  const tpl = store.getTemplate(inst.templateId)
+                  if (!tpl) return null
                   return (
                     <TaskCard
                       key={inst.id}
@@ -659,11 +662,14 @@ export function HomePage({ store, userMode, onOpenDetail, onOpenFeelingDetail, o
             <section className="px-4 mt-3 animate-fade-in">
               <SectionHeader emoji="💭" title="等你回应的" count={needResponse.length} color="deferred" />
               <div className="space-y-3">
-                {needResponse.map((inst) => (
+                {needResponse.map((inst) => {
+                  const tpl = getTemplate(inst.templateId)
+                  if (!tpl) return null
+                  return (
                   <TaskCard
                     key={inst.id}
                     instance={inst}
-                    template={getTemplate(inst.templateId)}
+                    template={tpl}
                     store={store}
                     onComplete={completeInstance}
                     onDefer={deferInstance}
@@ -673,7 +679,8 @@ export function HomePage({ store, userMode, onOpenDetail, onOpenFeelingDetail, o
                     onTapName={() => onOpenDetail(inst.templateId)}
                     variant="deferred"
                   />
-                ))}
+                  )
+                })}
               </div>
             </section>
           )}
@@ -681,7 +688,7 @@ export function HomePage({ store, userMode, onOpenDetail, onOpenFeelingDetail, o
           {needResponse.length === 0 && needAction.length === 0 && (
             <section className="px-4 mt-6">
               <div className="text-center py-10 bg-success-surface/50 rounded-2xl border border-success/10">
-                <span className="text-4xl mb-2 block animate-float">{character.expressions.sleeping}</span>
+                <span className="block mb-2 animate-float"><PetEmoji value={character.expressions.sleeping} size="w-10 h-10" /></span>
                 <p className="text-sm font-bold text-foreground">{getCompanionMessage(character, 'empty_all').text}</p>
                 <p className="text-xs text-muted-foreground mt-1">保持这个节奏~</p>
               </div>
@@ -692,11 +699,14 @@ export function HomePage({ store, userMode, onOpenDetail, onOpenFeelingDetail, o
             <section className="px-4 mt-5 animate-fade-in">
               <SectionHeader emoji="📋" title="等你处理的" color="awaiting" />
               <div className="space-y-3">
-                {needAction.map((inst) => (
+                {needAction.map((inst) => {
+                  const tpl = getTemplate(inst.templateId)
+                  if (!tpl) return null
+                  return (
                   <div key={inst.id} onClick={() => onTriggerReminder(inst.id)} className="cursor-pointer">
                     <TaskCard
                       instance={inst}
-                      template={getTemplate(inst.templateId)}
+                      template={tpl}
                       store={store}
                       onComplete={completeInstance}
                       onDefer={deferInstance}
@@ -707,7 +717,8 @@ export function HomePage({ store, userMode, onOpenDetail, onOpenFeelingDetail, o
                       variant="awaiting"
                     />
                   </div>
-                ))}
+                  )
+                })}
               </div>
             </section>
           )}

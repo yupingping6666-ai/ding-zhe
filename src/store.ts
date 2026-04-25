@@ -731,7 +731,7 @@ export function useStore(options?: { apiMode?: boolean }) {
       showToast('感受已记录', 'success')
       return feelingId
     },
-    [showToast, users]
+    [showToast]
   )
 
   const convertFeelingToTask = useCallback(
@@ -1151,6 +1151,22 @@ export function useStore(options?: { apiMode?: boolean }) {
     showToast(entry?.isHidden ? '已取消隐藏' : '已隐藏', 'info')
   }, [showToast, feelings])
 
+  const toggleLikeFeeling = useCallback((feelingId: string, userId: string) => {
+    setFeelings((prev) =>
+      prev.map((f) => {
+        if (f.id !== feelingId) return f
+        const likedBy = f.likedBy ?? []
+        const already = likedBy.includes(userId)
+        return {
+          ...f,
+          likedBy: already
+            ? likedBy.filter((id) => id !== userId)
+            : [...likedBy, userId],
+        }
+      })
+    )
+  }, [])
+
   const toggleHidePhoto = useCallback((feelingId: string, photoIndex: number) => {
     setFeelings((prev) =>
       prev.map((f) => {
@@ -1313,7 +1329,7 @@ export function useStore(options?: { apiMode?: boolean }) {
     const senderName = users.find(u => u.id === senderId)?.name || '对方'
     addNotification(receiverId, `${senderName} 通过小橘给你传了一句话~`, undefined)
     showToast('小橘已经帮你传达了~', 'success')
-  }, [users])
+  }, [users, addNotification, showToast])
 
   const getUnreadRelays = useCallback((userId: string) => {
     return relayMessages
@@ -1360,6 +1376,7 @@ export function useStore(options?: { apiMode?: boolean }) {
     addComment,
     deleteFeeling,
     toggleHideFeeling,
+    toggleLikeFeeling,
     toggleHidePhoto,
     updateFeeling,
     getUserNotifications,
@@ -1410,5 +1427,7 @@ export function useStore(options?: { apiMode?: boolean }) {
     markRelayRead,
   }
 }
+
+export type Store = ReturnType<typeof useStore>
 
 export type Store = ReturnType<typeof useStore>

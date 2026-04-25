@@ -225,23 +225,31 @@ export function PetPage({ store, onTodayStory, onFeelingCreate, onBack }: PetPag
       taskSummary: store.getAiTaskSummary(currentUserId),
     }, wantsPhotos && recentPhotoUrls.length > 0 ? recentPhotoUrls : undefined)
 
-    const [aiResult] = await Promise.all([aiPromise, minDelay])
-    console.log('[PetChat] handleSend AI result:', aiResult)
-
     let replyText: string
     let replyExpr: PetExpression
-    if (!aiResult.fallback && aiResult.text) {
-      replyText = aiResult.text
-      replyExpr = inferExpression(replyText)
-    } else {
+    try {
+      const [aiResult] = await Promise.all([aiPromise, minDelay])
+      console.log('[PetChat] handleSend AI result:', aiResult)
+
+      if (!aiResult.fallback && aiResult.text) {
+        replyText = aiResult.text
+        replyExpr = inferExpression(replyText)
+      } else {
+        const local = generateCatReply({ content: text }, replyContext)
+        replyText = local.text
+        replyExpr = local.expression
+      }
+    } catch (err) {
+      console.warn('[PetChat] AI call failed, using local fallback:', err)
       const local = generateCatReply({ content: text }, replyContext)
       replyText = local.text
       replyExpr = local.expression
+    } finally {
+      setIsTyping(false)
     }
 
     pushHistory('assistant', replyText)
     setExpression(replyExpr)
-    setIsTyping(false)
     setMessages(prev => [...prev, {
       id: nextMsgId(),
       role: 'cat',
@@ -256,12 +264,12 @@ export function PetPage({ store, onTodayStory, onFeelingCreate, onBack }: PetPag
       setMessages(prev => [...prev, {
         id: nextMsgId(),
         role: 'system',
-        content: `${taskInput!.name} · ${taskInput!.remindTime} · ${taskReceiverName}`,
+        content: `${taskInput.name} · ${taskInput.remindTime} · ${taskReceiverName}`,
         timestamp: Date.now(),
         expression: 'achievement',
         taskCreated: {
-          name: taskInput!.name,
-          time: taskInput!.remindTime,
+          name: taskInput.name,
+          time: taskInput.remindTime,
           receiverName: taskReceiverName,
         },
       }])
@@ -307,22 +315,31 @@ export function PetPage({ store, onTodayStory, onFeelingCreate, onBack }: PetPag
         upcomingAnniversaries: store.upcomingAnniversaries,
         taskSummary: store.getAiTaskSummary(currentUserId),
       }, undefined) // Quick actions don't send photos
-      const [aiResult] = await Promise.all([aiPromise, minDelay])
 
       let replyText: string
       let replyExpr: PetExpression
-      if (!aiResult.fallback && aiResult.text) {
-        replyText = aiResult.text
-        replyExpr = inferExpression(replyText)
-      } else {
+      try {
+        const [aiResult] = await Promise.all([aiPromise, minDelay])
+
+        if (!aiResult.fallback && aiResult.text) {
+          replyText = aiResult.text
+          replyExpr = inferExpression(replyText)
+        } else {
+          const local = generateCatReply({ content: userText, actionType: action }, replyContext)
+          replyText = local.text
+          replyExpr = local.expression
+        }
+      } catch (err) {
+        console.warn('[PetChat] advice AI call failed, using local fallback:', err)
         const local = generateCatReply({ content: userText, actionType: action }, replyContext)
         replyText = local.text
         replyExpr = local.expression
+      } finally {
+        setIsTyping(false)
       }
 
       pushHistory('assistant', replyText)
       setExpression(replyExpr)
-      setIsTyping(false)
       setMessages(prev => [...prev, {
         id: nextMsgId(),
         role: 'cat',

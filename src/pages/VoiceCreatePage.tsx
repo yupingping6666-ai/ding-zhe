@@ -60,7 +60,7 @@ export function VoiceCreatePage({ store, userMode, onBack }: Props) {
         setPhase('confirm')
       }
     }
-  }, [speech.status, speech.transcript])
+  }, [speech.status, speech.transcript, store.users, currentUserId])
 
   // Debounced parsing for text input mode
   useEffect(() => {
@@ -78,7 +78,7 @@ export function VoiceCreatePage({ store, userMode, onBack }: Props) {
       // Don't auto-transition in text mode — user presses confirm
     }, 200)
     return () => clearTimeout(timer)
-  }, [textInput, inputMode])
+  }, [textInput, inputMode, store.users, currentUserId])
 
   // Auto-resize textarea
   useEffect(() => {

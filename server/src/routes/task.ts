@@ -71,7 +71,7 @@ router.post('/update_status', authMiddleware, async (req: AuthRequest, res) => {
       })
     }
 
-    const updated = await taskService.updateInstanceStatus(instanceId, status, feedback)
+    const updated = await taskService.updateInstanceStatus(instanceId, status, feedback, req.userId!)
     if (!updated) {
       return res.status(404).json({
         ok: false,

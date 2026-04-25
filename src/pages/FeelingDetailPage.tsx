@@ -5,7 +5,8 @@ import { CommentSection } from '@/components/CommentSection'
 import { DeleteConfirmDialog } from '@/components/DeleteConfirmDialog'
 import PetCommentLine from '@/components/PetCommentLine'
 import { COMPANION_CHARACTERS } from '@/lib/companion'
-import { ArrowLeft, MapPin, Pencil, Trash2, Video, Eye, EyeOff, X, Check, Sparkles } from 'lucide-react'
+import { UserAvatar } from '@/components/UserAvatar'
+import { ArrowLeft, MapPin, Pencil, Trash2, Video, Eye, EyeOff, X, Check, Sparkles, Heart } from 'lucide-react'
 
 interface Props {
   store: Store
@@ -141,6 +142,19 @@ export function FeelingDetailPage({ store, feelingId, currentUserId, onBack, onO
       </div>
 
       <div className="px-5 space-y-4">
+        {/* Author */}
+        {(() => {
+          const author = store.getUserProfile(entry.userId)
+          return (
+            <div className="flex items-center gap-2.5">
+              <span className="w-10 h-10 rounded-full overflow-hidden inline-flex items-center justify-center">
+                <UserAvatar avatar={author.avatar} imgClass="w-10 h-10" />
+              </span>
+              <span className="text-sm font-semibold text-foreground">{author.name}</span>
+            </div>
+          )
+        })()}
+
         {/* Mood */}
         {editing ? (
           <div>
@@ -243,10 +257,32 @@ export function FeelingDetailPage({ store, feelingId, currentUserId, onBack, onO
           </div>
         )}
 
-        {/* Date */}
-        <div className="text-xs text-muted-foreground">
-          {formatDate(entry.createdAt)}
+        {/* Date + Like */}
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-muted-foreground">
+            {formatDate(entry.createdAt)}
+          </span>
+          <button
+            onClick={() => store.toggleLikeFeeling(feelingId, currentUserId)}
+            className={`p-1.5 rounded-full transition-colors ${
+              (entry.likedBy ?? []).includes(currentUserId)
+                ? 'text-red-400 hover:bg-red-50'
+                : 'text-muted-foreground/50 hover:text-red-400 hover:bg-red-50'
+            }`}
+          >
+            <Heart className={`w-4 h-4 transition-transform ${(entry.likedBy ?? []).includes(currentUserId) ? 'fill-current scale-110' : ''}`} />
+          </button>
         </div>
+
+        {/* Likes */}
+        {(entry.likedBy ?? []).length > 0 && (
+          <div className="bg-secondary/50 rounded-xl px-3 py-1.5 flex items-center gap-1.5">
+            <Heart className="w-3 h-3 text-red-400 fill-current flex-shrink-0" />
+            <span className="text-xs font-semibold text-foreground">
+              {(entry.likedBy ?? []).map((uid) => store.getUserProfile(uid).name).join(', ')}
+            </span>
+          </div>
+        )}
 
         {/* Divider */}
         <div className="border-t" />
@@ -255,7 +291,8 @@ export function FeelingDetailPage({ store, feelingId, currentUserId, onBack, onO
         {!narrative && (() => {
           const petComment = store.getPetComment(feelingId)
           if (!petComment) return null
-          return <PetCommentLine comment={petComment} className="py-1" />
+          const companion = COMPANION_CHARACTERS[store.space.companion]
+          return <PetCommentLine comment={petComment} avatar={companion.avatar} className="py-1" />
         })()}
 
         {/* Narrative CTA / Result - hide for reminder entries */}

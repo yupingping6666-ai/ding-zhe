@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { Store } from '@/store'
 import type { Photo } from '@/api/photos'
 import type { FeelingEntry } from '@/types'
-import { BookHeart, Calendar } from 'lucide-react'
+import { BookHeart, Calendar, ChevronLeft } from 'lucide-react'
 import { COMPANION_CHARACTERS } from '@/lib/companion'
 import { PhotoFeedCard } from '@/components/PhotoFeedCard'
 import { PhotoDetailView } from '@/components/PhotoDetailView'
@@ -23,7 +23,7 @@ function getEntryPhotos(entry: FeelingEntry): string[] {
   return entry.photoUrls ?? (entry.photoUrl ? [entry.photoUrl] : [])
 }
 
-export function PhotoWallPage({ store, userMode, currentUserId, onOpenFeelingDetail }: PhotoWallPageProps) {
+export function PhotoWallPage({ store, userMode, currentUserId, onBack, onOpenFeelingDetail }: PhotoWallPageProps) {
   const [detailPhotos, setDetailPhotos] = useState<Photo[] | null>(null)
   const [detailIndex, setDetailIndex] = useState(0)
   const [showHidden, setShowHidden] = useState(false)
@@ -110,7 +110,12 @@ export function PhotoWallPage({ store, userMode, currentUserId, onOpenFeelingDet
       {/* Header */}
       <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-lg border-b px-4 py-3">
         <div className="flex items-center justify-between">
-          <h1 className="text-lg font-bold">{pageTitle}</h1>
+          <div className="flex items-center gap-1">
+            <button onClick={onBack} className="p-1 -ml-1 rounded-full hover:bg-accent transition-colors">
+              <ChevronLeft className="w-5 h-5 text-muted-foreground" />
+            </button>
+            <h1 className="text-lg font-bold">{pageTitle}</h1>
+          </div>
           <button
             onClick={() => {
               if (showHidden) {
@@ -162,6 +167,8 @@ export function PhotoWallPage({ store, userMode, currentUserId, onOpenFeelingDet
                           onClick={() => onOpenFeelingDetail?.(entry.id)}
                           onDelete={isOwnEntry ? () => setDeleteTarget(entry) : undefined}
                           onHidePhoto={isOwnEntry ? (idx) => store.toggleHidePhoto(entry.id, idx) : undefined}
+                          onToggleLike={() => store.toggleLikeFeeling(entry.id, currentUserId)}
+                          currentUserId={currentUserId}
                           showHidden={showHidden}
                           isHidden={showHidden}
                           currentUserName={userName}

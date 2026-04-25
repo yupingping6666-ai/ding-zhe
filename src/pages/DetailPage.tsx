@@ -61,7 +61,7 @@ export function DetailPage({ templateId, store, onBack }: Props) {
   if (!template) {
     return (
       <div className="p-6 text-center text-muted-foreground">
-        <span className="text-4xl block mb-3 animate-float">{character.expressions.thinking}</span>
+        <span className="block mb-3 animate-float"><PetEmoji value={character.expressions.thinking} size="w-10 h-10" /></span>
         <p>找不到这个任务</p>
         <button onClick={onBack} className="text-primary mt-2 text-sm">返回</button>
       </div>
@@ -131,14 +131,14 @@ export function DetailPage({ templateId, store, onBack }: Props) {
           {!isSelf && (
             <div className="flex items-center gap-3 mb-3 px-3 py-2.5 bg-secondary/60 rounded-2xl">
               <div className="flex items-center gap-1.5">
-                <span className="text-base">{character.avatar}</span>
+                <PetEmoji value={character.avatar} size="w-5 h-5" />
                 <span className="text-xs font-semibold text-foreground">{user.name}</span>
               </div>
               <span className="text-xs text-muted-foreground">
                 {isCreator ? '→' : '←'}
               </span>
               <div className="flex items-center gap-1.5">
-                <span className="text-base">{character.avatar}</span>
+                <PetEmoji value={character.avatar} size="w-5 h-5" />
                 <span className="text-xs font-semibold text-foreground">{otherUser.name}</span>
               </div>
               <span className="text-2xs text-muted-foreground ml-auto">
@@ -252,7 +252,7 @@ export function DetailPage({ templateId, store, onBack }: Props) {
             {/* Creator view: companion waiting message */}
             {isCreator && !isReceiver && (
               <div className="mt-3 flex items-center justify-center gap-2">
-                <span className="text-lg">{character.expressions.waiting}</span>
+                <PetEmoji value={character.expressions.waiting} size="w-5 h-5" />
                 <p className="text-xs text-muted-foreground">{character.name}说：等{otherUser.name}处理中~</p>
               </div>
             )}

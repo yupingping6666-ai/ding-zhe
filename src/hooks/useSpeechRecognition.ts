@@ -98,10 +98,8 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
     }
 
     recognition.onend = () => {
-      if (status === 'listening') {
-        // Ended without getting a final result
-        setStatus((prev) => prev === 'listening' ? 'idle' : prev)
-      }
+      // Use functional update to avoid stale closure over `status`
+      setStatus((prev) => prev === 'listening' ? 'idle' : prev)
     }
 
     recognitionRef.current = recognition
@@ -113,7 +111,7 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
       setError('无法启动语音识别')
       setStatus('error')
     }
-  }, [SpeechRecognitionAPI, status])
+  }, [SpeechRecognitionAPI])
 
   const stop = useCallback(() => {
     if (recognitionRef.current) {

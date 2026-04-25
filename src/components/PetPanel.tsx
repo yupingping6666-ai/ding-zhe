@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { X, Heart, UtensilsCrossed, MessageCircle, BookOpen } from 'lucide-react'
 import type { Store } from '@/store'
 import type { PetExpression } from '@/types'
@@ -18,6 +18,7 @@ export default function PetPanel({ store, onClose, onTodayStory }: PetPanelProps
   const [expression, setExpression] = useState<PetExpression>('idle')
   const [floatingText, setFloatingText] = useState<string | null>(null)
   const [foodVisible, setFoodVisible] = useState(false)
+  const reactionLockRef = useRef(false)
 
   // Check cooldowns
   const now = Date.now()
@@ -38,22 +39,25 @@ export default function PetPanel({ store, onClose, onTodayStory }: PetPanelProps
       case 'pet':
         if (petCooldown > 0) return
         store.petInteraction('pet')
+        reactionLockRef.current = true
         setExpression('happy')
         showFloat('开心！')
-        setTimeout(() => setExpression('idle'), 3000)
+        setTimeout(() => { reactionLockRef.current = false; setExpression('idle') }, 3000)
         break
       case 'feed':
         if (feedCooldown > 0) return
         store.petInteraction('feed')
+        reactionLockRef.current = true
         setExpression('eating')
         setFoodVisible(true)
         showFloat('好吃！')
-        setTimeout(() => { setFoodVisible(false); setExpression('idle') }, 3000)
+        setTimeout(() => { reactionLockRef.current = false; setFoodVisible(false); setExpression('idle') }, 3000)
         break
       case 'talk':
+        reactionLockRef.current = true
         setExpression('love')
         showFloat('喜欢你！')
-        setTimeout(() => setExpression('idle'), 3000)
+        setTimeout(() => { reactionLockRef.current = false; setExpression('idle') }, 3000)
         break
       case 'story':
         onTodayStory()
@@ -61,8 +65,9 @@ export default function PetPanel({ store, onClose, onTodayStory }: PetPanelProps
     }
   }, [petCooldown, feedCooldown, store, showFloat, onTodayStory])
 
-  // Derive expression from pet mood
+  // Derive expression from pet mood (skip if interaction animation is playing)
   useEffect(() => {
+    if (reactionLockRef.current) return
     const mood = store.currentPetState.mood
     if (mood === 'sleepy') setExpression('sleeping')
     else if (mood === 'happy') setExpression('happy')

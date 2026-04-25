@@ -2,6 +2,19 @@ import { pool } from '../db.js'
 import { config } from '../config.js'
 import path from 'path'
 
+function mapPhoto(row: any) {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    mode: row.mode,
+    url: row.url,
+    description: row.description,
+    relatedTaskId: row.related_task_id,
+    tags: row.tags,
+    createdAt: row.created_at,
+  }
+}
+
 export async function savePhoto(data: {
   userId: string
   mode: string
@@ -23,7 +36,7 @@ export async function savePhoto(data: {
       data.tags || [],
     ]
   )
-  return result.rows[0]
+  return mapPhoto(result.rows[0])
 }
 
 export async function getPhotosForUser(userId: string, limit = 50) {
@@ -31,5 +44,5 @@ export async function getPhotosForUser(userId: string, limit = 50) {
     `SELECT * FROM photos WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2`,
     [userId, limit]
   )
-  return result.rows
+  return result.rows.map(mapPhoto)
 }

@@ -74,7 +74,15 @@ export async function apiUpload<T>(
       body: formData,
     })
 
-    const json = await response.json()
+    let json: any
+    try {
+      json = await response.json()
+    } catch {
+      return {
+        ok: false,
+        error: { code: 'PARSE_ERROR', message: 'Invalid JSON response' },
+      }
+    }
 
     if (!response.ok) {
       return {
@@ -83,6 +91,14 @@ export async function apiUpload<T>(
       }
     }
 
+    return { ok: true, data: json.data }
+  } catch (error) {
+    return {
+      ok: false,
+      error: { code: 'NETWORK_ERROR', message: 'Upload failed' },
+    }
+  }
+}
     return { ok: true, data: json.data }
   } catch (error) {
     return {

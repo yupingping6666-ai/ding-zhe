@@ -175,5 +175,5 @@ export function generatePetComment(
     }
   }
 
-  return `${companionAvatar} ${companionName}："${comment}"`
+  return `${companionName}："${comment}"`
 }

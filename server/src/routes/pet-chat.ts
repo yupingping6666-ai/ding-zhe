@@ -73,8 +73,9 @@ router.post('/reply', async (req: Request, res) => {
       const intent = detectWeatherIntent(message)
       if (intent.isWeather) {
         // Check if asking about partner's weather
+        const escapedName = safeContext.partnerName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
         const askingPartner = safeContext.partnerName && new RegExp(
-          `${safeContext.partnerName}|老公|老婆|对象|另一半|他那|她那|那边|那儿|对方`,
+          `${escapedName}|老公|老婆|对象|另一半|他那|她那|那边|那儿|对方`,
         ).test(message)
 
         const city = intent.city

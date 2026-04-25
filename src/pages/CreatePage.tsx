@@ -300,7 +300,7 @@ function SingleModeForm({ store, preset, onBack }: { store: Store; preset?: stri
       : content.trim()
 
     store.saveFeeling(
-      finalContent, mood, undefined, entryType,
+      currentUserId, finalContent, mood, undefined, entryType,
       photos.length > 0 ? photos : undefined,
       location ?? undefined,
       mediaTypes.length > 0 ? mediaTypes : undefined
@@ -728,6 +728,16 @@ function DualModeForm({ store, currentUserId, onBack }: { store: Store; currentU
             size="xl"
             className="w-full"
             variant={itemType === 'care' ? 'care' : itemType === 'confirm' ? 'confirm' : 'default'}
+            disabled={!name.trim()}
+            onClick={handleCreate}
+          >
+            {submitLabel}
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
             disabled={!name.trim()}
             onClick={handleCreate}
           >

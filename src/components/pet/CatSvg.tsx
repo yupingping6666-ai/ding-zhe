@@ -52,6 +52,7 @@ export default function CatSvg({ expression, className }: CatSvgProps) {
       {/* 根据表情渲染不同的身体姿势 */}
       {renderBody(expression)}
       {renderHead(expression)}
+      {renderFace(expression)}
       {renderEffects(expression)}
     </svg>
   )
@@ -471,8 +472,13 @@ function renderEffects(expression: PetExpression): React.ReactNode {
     case 'empty':
       return (
         <g opacity="0.4">
-          <image href={catIdle} x="18" y="145" width="28" height="28" />
-          <image href={catIdle} x="145" y="150" width="28" height="28" />
+          {/* 小脚印装饰代替 PNG 引用 */}
+          <circle cx="28" cy="158" r="4" fill="#FFB366" />
+          <circle cx="22" cy="152" r="2.5" fill="#FFB366" />
+          <circle cx="34" cy="152" r="2.5" fill="#FFB366" />
+          <circle cx="163" cy="162" r="4" fill="#FFB366" />
+          <circle cx="157" cy="156" r="2.5" fill="#FFB366" />
+          <circle cx="169" cy="156" r="2.5" fill="#FFB366" />
         </g>
       )
     

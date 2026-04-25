@@ -1,69 +1,85 @@
 import { pool } from '../db.js'
 
 export async function invitePartner(inviterId: string, targetNickname: string) {
-  // Find target user
-  const targetResult = await pool.query(
-    'SELECT id, nickname FROM users WHERE nickname = $1',
-    [targetNickname]
-  )
+  const client = await pool.connect()
+  try {
+    await client.query('BEGIN')
 
-  if (targetResult.rows.length === 0) {
-    return { error: 'USER_NOT_FOUND', message: `用户 "${targetNickname}" 不存在` }
-  }
+    // Find target user
+    const targetResult = await client.query(
+      'SELECT id, nickname FROM users WHERE nickname = $1',
+      [targetNickname]
+    )
 
-  const targetUser = targetResult.rows[0]
+    if (targetResult.rows.length === 0) {
+      await client.query('ROLLBACK')
+      return { error: 'USER_NOT_FOUND', message: `用户 "${targetNickname}" 不存在` }
+    }
 
-  if (targetUser.id === inviterId) {
-    return { error: 'SELF_INVITE', message: '不能邀请自己' }
-  }
+    const targetUser = targetResult.rows[0]
 
-  // Check if either user already has a partner
-  const inviterResult = await pool.query(
-    'SELECT partner_id FROM users WHERE id = $1',
-    [inviterId]
-  )
+    if (targetUser.id === inviterId) {
+      await client.query('ROLLBACK')
+      return { error: 'SELF_INVITE', message: '不能邀请自己' }
+    }
 
-  if (inviterResult.rows[0]?.partner_id) {
-    return { error: 'ALREADY_BOUND', message: '你已经绑定了一位伙伴' }
-  }
+    // Check if either user already has a partner (with row lock)
+    const inviterResult = await client.query(
+      'SELECT partner_id FROM users WHERE id = $1 FOR UPDATE',
+      [inviterId]
+    )
 
-  const targetCheck = await pool.query(
-    'SELECT partner_id FROM users WHERE id = $1',
-    [targetUser.id]
-  )
+    if (inviterResult.rows[0]?.partner_id) {
+      await client.query('ROLLBACK')
+      return { error: 'ALREADY_BOUND', message: '你已经绑定了一位伙伴' }
+    }
 
-  if (targetCheck.rows[0]?.partner_id) {
-    return { error: 'PARTNER_BOUND', message: `"${targetNickname}" 已经绑定了伙伴` }
-  }
+    const targetCheck = await client.query(
+      'SELECT partner_id FROM users WHERE id = $1 FOR UPDATE',
+      [targetUser.id]
+    )
 
-  // Create relationship space
-  const userIds = [inviterId, targetUser.id].sort()
-  const spaceResult = await pool.query(
-    `INSERT INTO relationship_spaces (user_id_1, user_id_2, relation_type, companion)
-     VALUES ($1, $2, 'couple', 'cat')
-     RETURNING *`,
-    [userIds[0], userIds[1]]
-  )
+    if (targetCheck.rows[0]?.partner_id) {
+      await client.query('ROLLBACK')
+      return { error: 'PARTNER_BOUND', message: `"${targetNickname}" 已经绑定了伙伴` }
+    }
 
-  // Initialize pet state
-  await pool.query(
-    `INSERT INTO pet_states (space_id, mood, energy) VALUES ($1, 'content', 60)`,
-    [spaceResult.rows[0].id]
-  )
+    // Create relationship space
+    const userIds = [inviterId, targetUser.id].sort()
+    const spaceResult = await client.query(
+      `INSERT INTO relationship_spaces (user_id_1, user_id_2, relation_type, companion)
+       VALUES ($1, $2, 'couple', 'cat')
+       RETURNING *`,
+      [userIds[0], userIds[1]]
+    )
 
-  // Update both users
-  await pool.query(
-    'UPDATE users SET partner_id = $1, mode = $2 WHERE id = $3',
-    [targetUser.id, 'dual', inviterId]
-  )
-  await pool.query(
-    'UPDATE users SET partner_id = $1, mode = $2 WHERE id = $3',
-    [inviterId, 'dual', targetUser.id]
-  )
+    // Initialize pet state
+    await client.query(
+      `INSERT INTO pet_states (space_id, mood, energy) VALUES ($1, 'content', 60)`,
+      [spaceResult.rows[0].id]
+    )
 
-  return {
-    space: spaceResult.rows[0],
-    partner: { id: targetUser.id, nickname: targetUser.nickname },
+    // Update both users
+    await client.query(
+      'UPDATE users SET partner_id = $1, mode = $2 WHERE id = $3',
+      [targetUser.id, 'dual', inviterId]
+    )
+    await client.query(
+      'UPDATE users SET partner_id = $1, mode = $2 WHERE id = $3',
+      [inviterId, 'dual', targetUser.id]
+    )
+
+    await client.query('COMMIT')
+
+    return {
+      space: spaceResult.rows[0],
+      partner: { id: targetUser.id, nickname: targetUser.nickname },
+    }
+  } catch (error) {
+    await client.query('ROLLBACK')
+    throw error
+  } finally {
+    client.release()
   }
 }
 

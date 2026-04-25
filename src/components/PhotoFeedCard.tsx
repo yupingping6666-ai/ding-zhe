@@ -2,7 +2,7 @@ import { useRef, useCallback } from 'react'
 import type { FeelingEntry, Comment } from '@/types'
 import { CommentSection } from '@/components/CommentSection'
 import { UserAvatar } from '@/components/UserAvatar'
-import { Video, MapPin, Trash2, EyeOff } from 'lucide-react'
+import { Video, MapPin, Trash2, EyeOff, Heart } from 'lucide-react'
 
 interface PhotoFeedCardProps {
   entry: FeelingEntry
@@ -15,6 +15,8 @@ interface PhotoFeedCardProps {
   onClick?: () => void
   onDelete?: () => void
   onHidePhoto?: (photoIndex: number) => void
+  onToggleLike?: () => void
+  currentUserId?: string
   showHidden?: boolean
   isHidden?: boolean
   currentUserName?: string
@@ -39,10 +41,13 @@ function formatRelativeTime(ts: number): string {
 
 export function PhotoFeedCard({
   entry, photos, mediaTypes, comments, onAddComment, onPhotoTap,
-  onLongPress, onClick, onDelete, onHidePhoto, showHidden, isHidden, currentUserName,
+  onLongPress, onClick, onDelete, onHidePhoto, onToggleLike, currentUserId,
+  showHidden, isHidden, currentUserName,
   petName, petAvatar, authorName, authorAvatar, resolveUserName,
 }: PhotoFeedCardProps) {
   const moodTag = entry.mood
+  const isLiked = currentUserId ? (entry.likedBy ?? []).includes(currentUserId) : false
+  const likedBy = entry.likedBy ?? []
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const didLongPress = useRef(false)
   const photoLongPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -199,20 +204,44 @@ export function PhotoFeedCard({
         </div>
       )}
 
-      {/* Date + Delete */}
+      {/* Date + Actions */}
       <div className="mt-2 flex items-center justify-between">
         <span className="text-xs text-muted-foreground">
           {formatRelativeTime(entry.createdAt)}
         </span>
-        {onDelete && (
-          <button
-            onClick={(e) => { e.stopPropagation(); onDelete() }}
-            className="p-1.5 -mr-1 rounded-full text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 transition-colors"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </button>
-        )}
+        <div className="flex items-center gap-0.5">
+          {onToggleLike && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onToggleLike() }}
+              className={`p-1.5 rounded-full transition-colors ${
+                isLiked
+                  ? 'text-red-400 hover:bg-red-50'
+                  : 'text-muted-foreground/50 hover:text-red-400 hover:bg-red-50'
+              }`}
+            >
+              <Heart className={`w-3.5 h-3.5 transition-transform ${isLiked ? 'fill-current scale-110' : ''}`} />
+            </button>
+          )}
+          {onDelete && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onDelete() }}
+              className="p-1.5 -mr-1 rounded-full text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 transition-colors"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
       </div>
+
+      {/* Likes */}
+      {likedBy.length > 0 && (
+        <div className="mt-1.5 bg-secondary/50 rounded-xl px-3 py-1.5 flex items-center gap-1.5">
+          <Heart className="w-3 h-3 text-red-400 fill-current flex-shrink-0" />
+          <span className="text-xs font-semibold text-foreground">
+            {likedBy.map((uid) => resolveUserName?.(uid)?.name ?? uid).join(', ')}
+          </span>
+        </div>
+      )}
 
       {/* Comments */}
       <div onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()}>
