@@ -1,22 +1,23 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { Button } from '@/components/ui/button'
-import { ITEM_TYPE_CONFIG } from '@/types'
+import { ITEM_TYPE_CONFIG, TASK_ACTION_CONFIG } from '@/types'
 import { formatDelay, formatTime, formatDateLabel } from '@/lib/time'
 import type { TaskInstance, TaskTemplate } from '@/types'
 import type { Store } from '@/store'
 import { UserAvatar } from '@/components/UserAvatar'
 import { useCurrentUser } from '@/contexts/UserContext'
-import { Clock, ChevronDown, Send, Calendar, Date as DateIcon } from 'lucide-react'
+import { Clock, ChevronDown, Send, Calendar, Package, Camera } from 'lucide-react'
+import { fileToDataUrl, compressImage } from '@/lib/image-utils'
 
 interface Props {
   instance: TaskInstance
   template: TaskTemplate | undefined
   store: Store
-  onComplete: (id: string) => void
+  onComplete: (id: string, note?: string, photoUrl?: string) => void
   onDefer: (id: string, mins: number) => void
   onSkip: (id: string) => void
   onCantDo: (id: string) => void
-  onFeedback: (id: string, text: string) => void
+  onFeedback?: (id: string, text: string) => void
   onTapName?: (id: string) => void
   onDateChange?: (id: string, newDate: Date) => void
   variant: 'deferred' | 'awaiting' | 'pending' | 'completed' | 'skipped'
@@ -32,6 +33,8 @@ export function TaskCard({ instance, template, store, onComplete, onDefer, onSki
   const [showDefer, setShowDefer] = useState(false)
   const [showDatePicker, setShowDatePicker] = useState(false)
   const [feedbackText, setFeedbackText] = useState('')
+  const [pickupPhoto, setPickupPhoto] = useState<string | null>(null)
+  const pickupFileRef = useRef<HTMLInputElement>(null)
   const currentUserId = useCurrentUser()
 
   if (!template) return null
@@ -179,7 +182,7 @@ export function TaskCard({ instance, template, store, onComplete, onDefer, onSki
             size="sm"
             disabled={!feedbackText.trim()}
             onClick={() => {
-              onFeedback(instance.id, feedbackText.trim())
+              onFeedback?.(instance.id, feedbackText.trim())
               setFeedbackText('')
             }}
           >
@@ -188,8 +191,65 @@ export function TaskCard({ instance, template, store, onComplete, onDefer, onSki
         </div>
       )}
 
+      {/* Pickup action: confirm + optional photo */}
+      {!isDone && template.actionType === 'pickup' && (
+        <div className="mb-3 ml-9 space-y-2">
+          {/* Photo preview (if taken) */}
+          {pickupPhoto && (
+            <div className="relative w-20 h-20 rounded-xl overflow-hidden border border-border/40">
+              <img src={pickupPhoto} alt="取件照片" className="w-full h-full object-cover" />
+              <button
+                type="button"
+                onClick={() => setPickupPhoto(null)}
+                className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-foreground/60 text-white flex items-center justify-center text-xs"
+              >
+                ×
+              </button>
+            </div>
+          )}
+          <div className="flex items-center gap-2">
+            <Button
+              variant="todo-soft"
+              size="sm"
+              className="flex-1"
+              onClick={() => {
+                onComplete(instance.id, '已取件', pickupPhoto || undefined)
+                setPickupPhoto(null)
+              }}
+            >
+              {TASK_ACTION_CONFIG.pickup.completeLabel}
+            </Button>
+            <Button
+              variant="defer"
+              size="sm"
+              className="gap-1"
+              onClick={() => pickupFileRef.current?.click()}
+            >
+              <Camera className="w-3.5 h-3.5" />
+              拍照
+            </Button>
+            <input
+              ref={pickupFileRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={async (e) => {
+                const file = e.target.files?.[0]
+                if (!file) return
+                try {
+                  const dataUrl = await fileToDataUrl(file)
+                  const compressed = await compressImage(dataUrl)
+                  setPickupPhoto(compressed)
+                } catch { /* ignore */ }
+                e.target.value = ''
+              }}
+            />
+          </div>
+        </div>
+      )}
+
       {/* Action buttons — pill shaped, type-colored */}
-      {!isDone && (
+      {!isDone && template.actionType !== 'pickup' && (
       <div className="flex items-center gap-2 ml-9">
         {/* Primary action */}
         {template.itemType === 'care' && (
@@ -237,6 +297,37 @@ export function TaskCard({ instance, template, store, onComplete, onDefer, onSki
           </Button>
         )}
       </div>
+      )}
+
+      {/* Pickup-only bottom row: just a defer option for when user can't pick up yet */}
+      {!isDone && template.actionType === 'pickup' && (
+        <div className="flex items-center gap-2 ml-9">
+          <div className="relative">
+            <Button variant="defer" size="sm" className="gap-1" onClick={() => setShowDefer(!showDefer)}>
+              <Clock className="w-3.5 h-3.5" />
+              稍后
+              <ChevronDown className={`w-3 h-3 transition-transform ${showDefer ? 'rotate-180' : ''}`} />
+            </Button>
+            {showDefer && (
+              <div className="absolute top-full left-0 mt-1.5 bg-card border rounded-2xl shadow-lg z-20 overflow-hidden animate-fade-in min-w-[130px]">
+                {DEFER_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.mins}
+                    className="w-full px-3.5 py-2.5 text-sm text-left hover:bg-accent transition-colors text-foreground"
+                    onClick={() => { onDefer(instance.id, opt.mins); setShowDefer(false) }}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          {!isSelf && (
+            <Button variant="cant-do" size="sm" onClick={() => onCantDo(instance.id)}>
+              做不了
+            </Button>
+          )}
+        </div>
       )}
     </div>
   )

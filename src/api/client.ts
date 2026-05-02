@@ -99,11 +99,3 @@ export async function apiUpload<T>(
     }
   }
 }
-    return { ok: true, data: json.data }
-  } catch (error) {
-    return {
-      ok: false,
-      error: { code: 'NETWORK_ERROR', message: 'Upload failed' },
-    }
-  }
-}

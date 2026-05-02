@@ -1,4 +1,5 @@
-import type { Category, RepeatRule, ParsedTask, CreateTaskInput } from '@/types'
+import type { Category, RepeatRule, ParsedTask, CreateTaskInput, TaskActionType } from '@/types'
+import { inferTaskActionType } from '@/types'
 import {
   CATEGORY_KEYWORDS,
   WEEKDAY_MAP,
@@ -486,6 +487,7 @@ export function parseNaturalLanguage(input: string, users?: { id: string; name: 
     confidence: { time: false, repeat: false, category: false },
     receiver: null,
     itemType: null,
+    actionType: 'none',
   }
 
   const trimmed = input.trim()
@@ -552,6 +554,11 @@ export function parseNaturalLanguage(input: string, users?: { id: string; name: 
   // Stage 5: Extract name (from residual after all extractions)
   const name = extractName(currentRemaining, normalized, category)
 
+  // Stage 6: Infer per-task action type from name (and original input as fallback)
+  const actionType: TaskActionType = inferTaskActionType(name) !== 'none'
+    ? inferTaskActionType(name)
+    : inferTaskActionType(normalized)
+
   return {
     name,
     time,
@@ -567,6 +574,7 @@ export function parseNaturalLanguage(input: string, users?: { id: string; name: 
     },
     receiver,
     itemType: null,
+    actionType,
   }
 }
 
@@ -622,6 +630,7 @@ export function applySmartDefaults(parsed: ParsedTask): CreateTaskInput {
     creatorId: '',   // will be set from UI context
     receiverId: parsed.receiver || '',  // from NLP extraction, UI can override
     note: '',
+    actionType: parsed.actionType,
   }
 }
 

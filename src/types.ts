@@ -13,6 +13,37 @@ export type RelationStatus = 'draft' | 'sent' | 'delivered' | 'seen' | 'responde
 // ---- New: Create content type for mode-aware creation ----
 export type CreateContentType = 'text-journal' | 'mood-capture' | 'photo-journal' | 'care' | 'todo' | 'confirm' | 'companion'
 
+// ---- Task Action Type (per-task input actions, e.g. pickup code) ----
+export type TaskActionType = 'none' | 'pickup'
+
+export const TASK_ACTION_CONFIG: Record<TaskActionType, {
+  label: string
+  icon: string
+  completeLabel?: string
+  photoLabel?: string
+  keywords: string[]
+}> = {
+  none: { label: '无', icon: '', keywords: [] },
+  pickup: {
+    label: '取快递',
+    icon: '📦',
+    completeLabel: '确认已取 📦',
+    photoLabel: '拍个照 📷',
+    keywords: ['取快递', '快递', '取件', '菜鸟', '驿站', '丰巢'],
+  },
+}
+
+/** Infer TaskActionType from a task name by keyword match. */
+export function inferTaskActionType(name: string): TaskActionType {
+  if (!name) return 'none'
+  const trimmed = name.trim()
+  for (const [key, cfg] of Object.entries(TASK_ACTION_CONFIG) as [TaskActionType, typeof TASK_ACTION_CONFIG[TaskActionType]][]) {
+    if (key === 'none') continue
+    if (cfg.keywords.some(kw => trimmed.includes(kw))) return key
+  }
+  return 'none'
+}
+
 // ---- New: Feeling entry type ----
 export type FeelingEntryType = 'text' | 'photo' | 'mood' | 'reminder'
 
@@ -144,6 +175,7 @@ export interface TaskTemplate {
   creatorId: string
   receiverId: string
   note: string // creator's attached note (e.g. "天冷了记得穿厚点")
+  actionType?: TaskActionType // optional per-task input action (pickup code etc.)
 }
 
 export interface ActionLog {
@@ -160,6 +192,7 @@ export interface ActionLog {
     | 'feedback_sent' // confirm: receiver sent feedback text
     | 'cant_do'       // receiver said "做不了"
   note: string
+  photoUrl?: string   // optional photo attachment (e.g. pickup proof)
 }
 
 export interface TaskInstance {
@@ -254,6 +287,7 @@ export interface ParsedTask {
   confidence: { time: boolean; repeat: boolean; category: boolean }
   receiver: string | null        // parsed receiver name, e.g. "小明"
   itemType: ItemType | null
+  actionType: TaskActionType
 }
 
 export interface CreateTaskInput {
@@ -271,6 +305,7 @@ export interface CreateTaskInput {
   creatorId: string
   receiverId: string
   note: string
+  actionType?: TaskActionType
 }
 
 // ---- Narrative entry (AI-generated relationship story) ----

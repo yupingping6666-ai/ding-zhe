@@ -93,9 +93,15 @@ export function RelationshipPage({ store, onBack, onEditProfile }: Props) {
               </p>
               <p className="text-xs text-muted-foreground mt-0.5">{getRelationDurationText(store.relationDays)}</p>
             </div>
-            <div className="w-12 h-12 rounded-full bg-card flex items-center justify-center text-xl shadow-sm border border-border/30 overflow-hidden">
+            <button
+              onClick={() => onEditProfile?.(partner.id)}
+              className="w-12 h-12 rounded-full bg-card flex items-center justify-center text-xl shadow-sm border border-border/30 hover:border-primary/40 transition-all active:scale-95 relative overflow-hidden"
+            >
               <UserAvatar avatar={partner.avatar} />
-            </div>
+              <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-primary/80 flex items-center justify-center">
+                <span className="text-[8px] text-white">✏️</span>
+              </div>
+            </button>
           </div>
         </div>
 

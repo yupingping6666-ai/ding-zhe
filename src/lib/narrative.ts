@@ -303,13 +303,14 @@ function generateBody(feelings: FeelingEntry[], tone: MoodTone, isDual: boolean,
   return parts.join('\n\n')
 }
 
-// Pet summary: content-aware observations
+// Pet summary: content-aware observations.
+// Returns plain text only. Avatar + speaker name are rendered by the UI layer.
 function generatePetSummary(
   feelings: FeelingEntry[],
   tone: MoodTone,
   isDual: boolean,
-  companionName: string,
-  companionAvatar: string,
+  _companionName: string,
+  _companionAvatar: string,
   seed: number,
   photoCount: number,
 ): string {
@@ -398,7 +399,27 @@ function generatePetSummary(
   }
 
   const summary = pickOne(templates, seed)
-  return `${companionAvatar} ${companionName}："${summary}"`
+  return summary
+}
+
+/**
+ * Strip legacy speaker prefix from a petSummary string.
+ * Historical data stored petSummary as `"<avatarUrlOrEmoji> <name>：\"<text>\""`,
+ * which leaked image paths into the UI. Use this helper when rendering.
+ */
+export function stripPetSpeakerPrefix(text: string | undefined | null): string {
+  if (!text) return ''
+  let s = String(text).trim()
+  // Drop leading asset path / URL / data URI
+  s = s.replace(/^\/?\S+\.(?:png|jpe?g|gif|webp|svg|avif)\s+/i, '')
+  s = s.replace(/^(?:data:|https?:\/\/|blob:)\S+\s+/i, '')
+  // Drop emoji-ish leading token followed by a name + “：/：”
+  s = s.replace(/^[\p{Extended_Pictographic}\u2600-\u27BF\uFE0F]+\s*/u, '')
+  // Drop Chinese speaker name + colon (e.g. "小橘：" or "小橘:")
+  s = s.replace(/^[\u4e00-\u9fa5A-Za-z]{1,6}[：:]\s*/, '')
+  // Strip wrapping quotes
+  s = s.replace(/^["“「『]/, '').replace(/["”」』]$/, '')
+  return s.trim()
 }
 
 export function generateDemoNarrativeEntry(

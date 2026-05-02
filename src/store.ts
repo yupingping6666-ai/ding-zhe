@@ -17,7 +17,7 @@ import type {
   RelayMessage,
   RelayVersionType,
 } from '@/types'
-import { INTENSITY_CONFIG, ITEM_TYPE_CONFIG } from '@/types'
+import { INTENSITY_CONFIG, ITEM_TYPE_CONFIG, inferTaskActionType } from '@/types'
 import type { CompanionAnimal, RelationType } from '@/lib/companion'
 import { COMPANION_CHARACTERS } from '@/lib/companion'
 import { calculateMood, calculateEnergy, getTodayDateString } from '@/lib/pet-state'
@@ -54,6 +54,13 @@ export const USERS: User[] = [
   { id: 'user-2', name: '小明', avatar: '👦', partnerId: 'user-1', onboarded: true },
 ]
 
+// Live snapshot synced by useStore() so module-level getUser/getPartner reflect
+// runtime edits (e.g. nickname/avatar updates via updateUserProfile).
+let CURRENT_USERS: User[] = USERS.slice()
+export function _syncCurrentUsers(list: User[]) {
+  CURRENT_USERS = list
+}
+
 // ---- shared relationship space ----
 const INITIAL_SPACE: RelationshipSpace = {
   id: 'space-1',
@@ -73,7 +80,7 @@ const INITIAL_SPACE: RelationshipSpace = {
 }
 
 export function getUser(id: string): User {
-  return USERS.find((u) => u.id === id) || USERS[0]
+  return CURRENT_USERS.find((u) => u.id === id) || CURRENT_USERS[0]
 }
 
 export function getPartner(userId: string): User {
@@ -106,6 +113,7 @@ function createSeedData(): { templates: TaskTemplate[]; instances: TaskInstance[
       isActive: true, createdAt: Date.now() - 1 * 86400000,
       itemType: 'todo', creatorId: 'user-1', receiverId: 'user-2',
       note: '菜鸟驿站 A205',
+      actionType: 'pickup',
     },
     {
       id: '4', name: '洗碗', category: 'life', remindTime: '20:00',
@@ -288,9 +296,15 @@ export function useStore(options?: { apiMode?: boolean }) {
   const seed = createSeedData()
 
   // Use lazy initialization: prefer localStorage cache, fallback to seed data
-  const [templates, setTemplates] = useState<TaskTemplate[]>(() =>
-    storage.load<TaskTemplate[]>('templates') ?? seed.templates
-  )
+  const [templates, setTemplates] = useState<TaskTemplate[]>(() => {
+    const cached = storage.load<TaskTemplate[]>('templates')
+    if (!cached) return seed.templates
+    // Backfill actionType for legacy records (pre-MVP data)
+    return cached.map((t) => ({
+      ...t,
+      actionType: t.actionType ?? inferTaskActionType(t.name),
+    }))
+  })
   const [instances, setInstances] = useState<TaskInstance[]>(() =>
     storage.load<TaskInstance[]>('instances') ?? seed.instances
   )
@@ -299,6 +313,12 @@ export function useStore(options?: { apiMode?: boolean }) {
   const [users, setUsers] = useState<User[]>(() =>
     storage.load<User[]>('users') ?? USERS
   )
+
+  // Keep module-level getUser/getPartner in sync with live state so any call
+  // site (including legacy imports) reads the latest nickname/avatar.
+  useEffect(() => {
+    _syncCurrentUsers(users)
+  }, [users])
   const [space, setSpace] = useState<RelationshipSpace>(() =>
     storage.load<RelationshipSpace>('space') ?? INITIAL_SPACE
   )
@@ -503,14 +523,15 @@ export function useStore(options?: { apiMode?: boolean }) {
   )
 
   // ---- Actions ----
-  const completeInstance = useCallback((instanceId: string) => {
+  const completeInstance = useCallback((instanceId: string, actionNote?: string, photoUrl?: string) => {
     setInstances((prev) =>
       prev.map((inst) => {
         if (inst.id !== instanceId) return inst
         const tpl = templates.find((t) => t.id === inst.templateId)
         const itemType = tpl?.itemType || 'todo'
-        const actionNote = itemType === 'care' ? '好的💛' : '做好了'
+        const baseNote = itemType === 'care' ? '好的💛' : '做好了'
         const action = itemType === 'care' ? 'acknowledged' as const : 'user_completed' as const
+        const actionNoteText = actionNote ? `${baseNote}｜${actionNote}` : baseNote
         return {
           ...inst,
           status: 'completed' as InstanceStatus,
@@ -519,7 +540,7 @@ export function useStore(options?: { apiMode?: boolean }) {
           relationStatus: 'responded' as RelationStatus,
           actionLog: [
             ...inst.actionLog,
-            { timestamp: Date.now(), action, note: actionNote },
+            { timestamp: Date.now(), action, note: actionNoteText, ...(photoUrl ? { photoUrl } : {}) },
           ],
         }
       })
@@ -803,6 +824,7 @@ export function useStore(options?: { apiMode?: boolean }) {
         creatorId: data.creatorId,
         receiverId: data.receiverId,
         note: data.note,
+        actionType: data.actionType ?? inferTaskActionType(data.name),
       }
 
       const newInstance: TaskInstance = {
@@ -1028,6 +1050,21 @@ export function useStore(options?: { apiMode?: boolean }) {
   const todayCompletedCount = todayInstances.filter((i) => i.status === 'completed').length
   const todaySkippedCount = todayInstances.filter((i) => i.status === 'skipped').length
   const todayTotalCount = todayInstances.length
+  const getTodayReceivedStats = useCallback(
+    (userId: string, selfOnly?: boolean) => {
+      const userToday = todayInstances.filter((inst) => {
+        const tpl = templates.find((t) => t.id === inst.templateId)
+        if (!tpl || tpl.receiverId !== userId) return false
+        if (selfOnly && tpl.creatorId !== tpl.receiverId) return false
+        return true
+      })
+      return {
+        completed: userToday.filter((i) => i.status === 'completed').length,
+        total: userToday.length,
+      }
+    },
+    [todayInstances, templates]
+  )
   const todayCareCount = todayInstances.filter((i) => {
     const tpl = templates.find((t) => t.id === i.templateId)
     return tpl?.itemType === 'care' && i.status === 'completed'
@@ -1239,7 +1276,7 @@ export function useStore(options?: { apiMode?: boolean }) {
           userId,
           title: apiResult.data.content.split('\n')[0] || '今天的故事',
           bodyText: apiResult.data.content,
-          petSummary: `${companion.avatar} ${companion.name}："陪你们记录了这一天"`,
+          petSummary: '陪你们记录了这一天',
           photoUrls: photoUrls.slice(0, 3),
           feelingIds: targetFeelings.map((f) => f.id),
           createdAt: Date.now(),
@@ -1362,6 +1399,7 @@ export function useStore(options?: { apiMode?: boolean }) {
     todayCompletedCount,
     todayTotalCount,
     todayCareCount,
+    getTodayReceivedStats,
     relationDays,
     todayAnniversaries,
     upcomingAnniversaries,
@@ -1427,7 +1465,5 @@ export function useStore(options?: { apiMode?: boolean }) {
     markRelayRead,
   }
 }
-
-export type Store = ReturnType<typeof useStore>
 
 export type Store = ReturnType<typeof useStore>

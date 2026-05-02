@@ -1,7 +1,6 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { Sparkles } from 'lucide-react'
 import type { Store } from '@/store'
-import { getPartner } from '@/store'
 import type { PetExpression, ChatMessage, ChatQuickAction } from '@/types'
 import { COMPANION_CHARACTERS } from '@/lib/companion'
 import { canInteract, getInteractionCooldownRemaining, PET_COOLDOWNS } from '@/lib/pet-state'
@@ -211,7 +210,7 @@ export function PetPage({ store, onTodayStory, onFeelingCreate, onBack }: PetPag
 
     // Try AI, fallback to local
     const currentUser = store.getUserProfile(currentUserId)
-    const partner = getPartner(currentUserId)
+    const partner = store.getUserProfile(currentUser.partnerId)
     const aiPromise = chatWithPet(text, chatHistoryRef.current.slice(0, -1), {
       companionName: companion.name,
       mood: store.currentPetState.mood,
@@ -302,7 +301,7 @@ export function PetPage({ store, onTodayStory, onFeelingCreate, onBack }: PetPag
       pushHistory('user', userText)
       const minDelay = new Promise(r => setTimeout(r, 600))
       const adviceUser = store.getUserProfile(currentUserId)
-      const advicePartner = getPartner(currentUserId)
+      const advicePartner = store.getUserProfile(adviceUser.partnerId)
       const aiPromise = chatWithPet(userText, chatHistoryRef.current.slice(0, -1), {
         companionName: companion.name,
         mood: store.currentPetState.mood,
@@ -496,11 +495,12 @@ export function PetPage({ store, onTodayStory, onFeelingCreate, onBack }: PetPag
               <div className="w-7 h-7 rounded-full overflow-hidden flex-shrink-0 bg-secondary/50">
                 <PetSvg animal={store.space.companion} expression="thinking" className="w-full h-full" />
               </div>
-              <div className="rounded-2xl rounded-bl-md px-4 py-3 bg-secondary/60">
-                <div className="flex gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50 animate-typing-dot" />
-                  <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50 animate-typing-dot" style={{ animationDelay: '0.2s' }} />
-                  <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50 animate-typing-dot" style={{ animationDelay: '0.4s' }} />
+              <div className="rounded-2xl rounded-bl-md px-3.5 py-2.5 bg-secondary/60 flex items-center gap-2">
+                <span className="text-2xs text-muted-foreground">{companion.name}正在思考</span>
+                <div className="flex gap-1 items-end">
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary/70 animate-typing-dot" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary/70 animate-typing-dot" style={{ animationDelay: '0.2s' }} />
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary/70 animate-typing-dot" style={{ animationDelay: '0.4s' }} />
                 </div>
               </div>
             </div>

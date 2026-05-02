@@ -6,10 +6,10 @@ import {
   REPEAT_CONFIG,
   WEEKDAY_LABELS,
   ITEM_TYPE_CONFIG,
+  inferTaskActionType,
 } from '@/types'
 import type { Category, RepeatRule, FollowUpIntensity, ItemType, FeelingEntryType } from '@/types'
 import type { Store } from '@/store'
-import { getPartner } from '@/store'
 import { UserAvatar } from '@/components/UserAvatar'
 import { useCurrentUser } from '@/contexts/UserContext'
 import { COMPANION_CHARACTERS } from '@/lib/companion'
@@ -468,7 +468,7 @@ function SingleModeForm({ store, preset, onBack }: { store: Store; preset?: stri
 // ======== Dual Mode Form (original logic) ========
 
 function DualModeForm({ store, currentUserId, onBack }: { store: Store; currentUserId: string; onBack: () => void }) {
-  const partner = getPartner(currentUserId)
+  const partner = store.getUserProfile(store.getUserProfile(currentUserId).partnerId)
 
   const [name, setName] = useState('')
   const [category, setCategory] = useState<Category>('life')
@@ -515,6 +515,7 @@ function DualModeForm({ store, currentUserId, onBack }: { store: Store; currentU
       creatorId: currentUserId,
       receiverId,
       note: note.trim(),
+      actionType: inferTaskActionType(name.trim()),
     })
     onBack()
   }
@@ -728,16 +729,6 @@ function DualModeForm({ store, currentUserId, onBack }: { store: Store; currentU
             size="xl"
             className="w-full"
             variant={itemType === 'care' ? 'care' : itemType === 'confirm' ? 'confirm' : 'default'}
-            disabled={!name.trim()}
-            onClick={handleCreate}
-          >
-            {submitLabel}
-          </Button>
-        </div>
-      </div>
-    </div>
-  )
-}
             disabled={!name.trim()}
             onClick={handleCreate}
           >

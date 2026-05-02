@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import type { Store } from '@/store'
 import { useCurrentUser } from '@/contexts/UserContext'
 import { COMPANION_CHARACTERS } from '@/lib/companion'
@@ -14,15 +14,16 @@ import { MyPage } from '@/pages/MyPage'
 import { ReminderOverlay } from '@/components/ReminderOverlay'
 import { CreateChooser } from '@/components/CreateChooser'
 import { Toast } from '@/components/Toast'
-import { Home, Plus, Share2, LayoutGrid, Users } from 'lucide-react'
+import { Home, Plus, Share2, Users, ClipboardList } from 'lucide-react'
 import { PhotoWallPage } from '@/pages/PhotoWallPage'
 import { FeelingDetailPage } from '@/pages/FeelingDetailPage'
 import { NarrativePage } from '@/pages/NarrativePage'
 import { PetPage } from '@/pages/PetPage'
 import { ProfileEditPage } from '@/pages/ProfileEditPage'
+import { TodoPage } from '@/pages/TodoPage'
 import CompletionPrompt from '@/components/CompletionPrompt'
 
-type Page = 'home' | 'create' | 'voice' | 'records' | 'detail' | 'relationship' | 'my' | 'photowall' | 'feeling-detail' | 'narrative' | 'pet' | 'profile-edit'
+type Page = 'home' | 'todo' | 'create' | 'voice' | 'records' | 'detail' | 'relationship' | 'my' | 'photowall' | 'feeling-detail' | 'narrative' | 'pet' | 'profile-edit'
 
 interface PhoneFrameProps {
   store: Store
@@ -48,6 +49,7 @@ export function PhoneFrame({ store, userMode }: PhoneFrameProps) {
   const [profileEditBackPage, setProfileEditBackPage] = useState<Page>('home')
   const [anniversaryDotDismissed, setAnniversaryDotDismissed] = useState(false)
   const [showNotifPanel, setShowNotifPanel] = useState(false)
+  const [detailBackPage, setDetailBackPage] = useState<Page>('home')
 
   // Reset anniversary dot dismissed state when the anniversary list changes (new day / new anniversary)
   const anniversaryKey = store.todayAnniversaries.map(a => a.title).join(',')
@@ -73,6 +75,7 @@ export function PhoneFrame({ store, userMode }: PhoneFrameProps) {
   }, [page, currentUserId, store])
 
   function openDetail(templateId: string) {
+    setDetailBackPage(page)
     setDetailTemplateId(templateId)
     setPage('detail')
   }
@@ -98,6 +101,16 @@ export function PhoneFrame({ store, userMode }: PhoneFrameProps) {
   function triggerReminder(instanceId: string) {
     setReminderInstanceId(instanceId)
   }
+
+  // Wrap completeInstance: after completing a life-category task, prompt to take a photo.
+  const handleCompleteInstance = useCallback((instanceId: string, note?: string, photoUrl?: string) => {
+    const inst = store.instances.find((i) => i.id === instanceId)
+    const tpl = inst ? store.getTemplate(inst.templateId) : undefined
+    store.completeInstance(instanceId, note, photoUrl)
+    if (tpl?.category === 'life' && tpl.actionType !== 'pickup') {
+      setShowCompletionPrompt(true)
+    }
+  }, [store])
 
   function handlePlusClick() {
     setShowChooser(true)
@@ -149,13 +162,23 @@ export function PhoneFrame({ store, userMode }: PhoneFrameProps) {
           <HomePage
             store={store}
             userMode={userMode}
-            onOpenDetail={openDetail}
-            onOpenFeelingDetail={openFeelingDetail}
-            onTriggerReminder={triggerReminder}
             onVoiceCreate={() => setPage('voice')}
             onOpenPetPanel={() => setPage('pet')}
             onOpenCreate={() => { setCreatePreset('photo-journal'); setPage('create') }}
             onOpenNotifications={() => setShowNotifPanel(true)}
+            onOpenTodo={() => setPage('todo')}
+          />
+        )}
+        {page === 'todo' && (
+          <TodoPage
+            store={store}
+            userMode={userMode}
+            onOpenDetail={openDetail}
+            onOpenFeelingDetail={openFeelingDetail}
+            onTriggerReminder={triggerReminder}
+            onVoiceCreate={() => setPage('voice')}
+            onOpenNotifications={() => setShowNotifPanel(true)}
+            onCompleteInstance={handleCompleteInstance}
           />
         )}
         {page === 'pet' && (
@@ -184,7 +207,7 @@ export function PhoneFrame({ store, userMode }: PhoneFrameProps) {
           <DetailPage
             templateId={detailTemplateId}
             store={store}
-            onBack={() => setPage('home')}
+            onBack={() => setPage(detailBackPage)}
           />
         )}
         {page === 'records' && (
@@ -214,6 +237,11 @@ export function PhoneFrame({ store, userMode }: PhoneFrameProps) {
             currentUserId={currentUserId}
             onBack={() => setPage('home')}
             onOpenFeelingDetail={openFeelingDetail}
+            onGenerateNarrative={async () => {
+              const entry = await store.generateNarrativeEntry()
+              if (entry) openNarrative(entry.id)
+              return !!entry
+            }}
           />
         )}
         {page === 'feeling-detail' && feelingDetailId && (
@@ -234,12 +262,12 @@ export function PhoneFrame({ store, userMode }: PhoneFrameProps) {
         )}
       </div>
 
-      {/* Tab bar — 首页 | 纪念 | + | 小橘 | 用户中心 */}
+      {/* Tab bar — 首页 | 待办 | + | 纪念 | 我的 */}
       <div className="border-t bg-card/80 backdrop-blur-lg safe-bottom">
         <div className="flex items-center justify-around py-2 pb-3">
           <button
             onClick={() => setPage('home')}
-            className={`flex flex-col items-center gap-0.5 px-2 py-1 transition-colors ${
+            className={`flex flex-col items-center gap-0.5 px-1 py-1 transition-colors ${
               page === 'home' ? 'text-primary' : 'text-muted-foreground'
             }`}
           >
@@ -247,8 +275,35 @@ export function PhoneFrame({ store, userMode }: PhoneFrameProps) {
             <span className="text-2xs font-medium">首页</span>
           </button>
           <button
+            onClick={() => setPage('todo')}
+            className={`flex flex-col items-center gap-0.5 px-1 py-1 transition-colors relative ${
+              page === 'todo' ? 'text-primary' : 'text-muted-foreground'
+            }`}
+          >
+            <ClipboardList className="w-5 h-5" />
+            <span className="text-2xs font-medium">待办</span>
+            {page !== 'todo' && store.getReceivedItems(currentUserId).filter(i => {
+              if (i.status !== 'deferred' && i.status !== 'awaiting') return false
+              if (userMode === 'single') {
+                const tpl = store.getTemplate(i.templateId)
+                if (!tpl || tpl.creatorId !== tpl.receiverId) return false
+              }
+              return true
+            }).length > 0 && (
+              <div className="absolute top-0 right-0 w-2 h-2 bg-primary rounded-full animate-pulse-soft" />
+            )}
+          </button>
+          <button
+            onClick={handlePlusClick}
+            className="flex flex-col items-center gap-0.5 px-1 py-1"
+          >
+            <div className="w-10 h-10 rounded-full flex items-center justify-center -mt-4 shadow-float" style={{ background: 'linear-gradient(180deg, hsl(14 80% 78%), hsl(14 90% 65%))' }}>
+              <Plus className="w-5 h-5 text-white" />
+            </div>
+          </button>
+          <button
             onClick={() => setPage('photowall')}
-            className={`flex flex-col items-center gap-0.5 px-2 py-1 transition-colors ${
+            className={`flex flex-col items-center gap-0.5 px-1 py-1 transition-colors ${
               page === 'photowall' ? 'text-primary' : 'text-muted-foreground'
             }`}
           >
@@ -256,35 +311,15 @@ export function PhoneFrame({ store, userMode }: PhoneFrameProps) {
             <span className="text-2xs font-medium">纪念</span>
           </button>
           <button
-            onClick={handlePlusClick}
-            className="flex flex-col items-center gap-0.5 px-2 py-1"
-          >
-            <div className="w-11 h-11 rounded-full flex items-center justify-center -mt-5 shadow-float" style={{ background: 'linear-gradient(180deg, hsl(14 80% 78%), hsl(14 90% 65%))' }}>
-              <Plus className="w-5 h-5 text-white" />
-            </div>
-          </button>
-          <button
-            onClick={() => setPage('pet')}
-            className={`flex flex-col items-center gap-0.5 px-2 py-1 transition-colors relative ${
-              page === 'pet' ? 'text-primary' : 'text-muted-foreground'
-            }`}
-          >
-            <LayoutGrid className="w-5 h-5" />
-            <span className="text-2xs font-medium">小橘</span>
-            {page !== 'pet' && store.getUnreadRelays(currentUserId).length > 0 && (
-              <div className="absolute top-0 right-0.5 w-2 h-2 bg-red-500 rounded-full animate-pulse-soft" />
-            )}
-          </button>
-          <button
             onClick={() => { setAnniversaryDotDismissed(true); userMode === 'single' ? setPage('my') : setPage('relationship') }}
-            className={`flex flex-col items-center gap-0.5 px-2 py-1 transition-colors relative ${
+            className={`flex flex-col items-center gap-0.5 px-1 py-1 transition-colors relative ${
               page === 'my' || page === 'relationship' ? 'text-primary' : 'text-muted-foreground'
             }`}
           >
             <Users className="w-5 h-5" />
-            <span className="text-2xs font-medium">{userMode === 'dual' ? '我们' : '我的'}</span>
+            <span className="text-2xs font-medium">我的</span>
             {userMode === 'dual' && store.todayAnniversaries.length > 0 && !anniversaryDotDismissed && (
-              <div className="absolute top-0 right-0.5 w-2 h-2 bg-[hsl(var(--anniversary))] rounded-full animate-pulse-soft" />
+              <div className="absolute top-0 right-0 w-2 h-2 bg-[hsl(var(--anniversary))] rounded-full animate-pulse-soft" />
             )}
           </button>
         </div>
@@ -317,7 +352,7 @@ export function PhoneFrame({ store, userMode }: PhoneFrameProps) {
           instance={reminderInstance}
           template={reminderTemplate}
           store={store}
-          onComplete={store.completeInstance}
+          onComplete={handleCompleteInstance}
           onDefer={store.deferInstance}
           onSkip={store.skipInstance}
           onCantDo={store.cantDoInstance}

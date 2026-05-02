@@ -17,7 +17,7 @@ import type {
 } from '@/types'
 import { UserAvatar } from '@/components/UserAvatar'
 import { useCurrentUser } from '@/contexts/UserContext'
-import { Clock, Repeat, FolderOpen, Gauge, User as UserIcon, Tag } from 'lucide-react'
+import { Clock, Repeat, FolderOpen, Gauge, User as UserIcon, Tag, Package } from 'lucide-react'
 
 interface Props {
   parsed: ParsedTask
@@ -43,6 +43,8 @@ export function ConfirmationCard({ parsed, defaults, overrides, onOverride, user
   const resolvedName = (overrides.name ?? defaults.name)
   const resolvedItemType = (overrides.itemType ?? defaults.itemType) as ItemType
   const resolvedReceiverId = (overrides.receiverId ?? defaults.receiverId) || currentUserId
+  const resolvedNote = (overrides.note ?? defaults.note) || ''
+  const isPickup = parsed.actionType === 'pickup'
 
   const cat = CATEGORY_CONFIG[resolvedCategory]
   const typeConf = ITEM_TYPE_CONFIG[resolvedItemType]
@@ -143,6 +145,22 @@ export function ConfirmationCard({ parsed, defaults, overrides, onOverride, user
           onClick={() => toggleEdit('intensity')}
         />
       </div>
+
+      {/* Pickup: verification code input */}
+      {isPickup && (
+        <div className="px-4 pb-3">
+          <div className="relative">
+            <Package className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+            <input
+              type="text"
+              value={resolvedNote}
+              onChange={(e) => onOverride('note', e.target.value)}
+              placeholder="输入取件码（如 8-2301）"
+              className="w-full h-10 pl-9 pr-3 rounded-xl bg-secondary border-none text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/30"
+            />
+          </div>
+        </div>
+      )}
 
       {/* Inline editors */}
       {editing === 'receiver' && userMode === 'dual' && (

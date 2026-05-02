@@ -122,7 +122,9 @@ export function VoiceCreatePage({ store, userMode, onBack }: Props) {
       name: resolvedName,
       creatorId: currentUserId,
       receiverId: finalReceiverId,
-      itemType: overrides.itemType ?? (finalReceiverId === currentUserId ? 'todo' : 'care'),
+      itemType: overrides.itemType
+        ?? (parsed?.actionType === 'pickup' ? 'todo' : undefined)
+        ?? (finalReceiverId === currentUserId ? 'todo' : 'care'),
     }
     store.createTask(final)
     onBack()

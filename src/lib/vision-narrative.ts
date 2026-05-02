@@ -136,8 +136,8 @@ ${feelingsText}
  */
 function parseVisionResponse(
   text: string,
-  companionName: string,
-  companionAvatar: string,
+  _companionName: string,
+  _companionAvatar: string,
 ): VisionNarrativeResult {
   const lines = text.split('\n').filter(l => l.trim())
 
@@ -168,9 +168,7 @@ function parseVisionResponse(
     bodyText = lines.slice(1).join('\n') || text
   }
 
-  const petSummary = petWords
-    ? `${companionAvatar} ${companionName}："${petWords}"`
-    : `${companionAvatar} ${companionName}："陪你们记录了这一天"`
+  const petSummary = petWords || '陪你们记录了这一天'
 
   return { title, bodyText, petSummary }
 }

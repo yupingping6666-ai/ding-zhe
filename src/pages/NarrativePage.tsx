@@ -1,5 +1,8 @@
 import { ArrowLeft } from 'lucide-react'
 import type { Store } from '@/store'
+import { COMPANION_CHARACTERS } from '@/lib/companion'
+import { stripPetSpeakerPrefix } from '@/lib/narrative'
+import PetSvg from '@/components/pet/PetSvg'
 
 interface NarrativePageProps {
   store: Store
@@ -9,6 +12,7 @@ interface NarrativePageProps {
 
 export function NarrativePage({ store, narrativeId, onBack }: NarrativePageProps) {
   const narrative = store.getNarrative(narrativeId)
+  const companion = COMPANION_CHARACTERS[store.space.companion]
 
   if (!narrative) {
     return (
@@ -62,8 +66,19 @@ export function NarrativePage({ store, narrativeId, onBack }: NarrativePageProps
         <div className="w-12 h-px bg-gray-200 mx-auto mb-5 animate-narrative-reveal" style={{ animationDelay: '0.45s' }} />
 
         {/* Pet summary */}
-        <div className="bg-amber-50/80 rounded-2xl px-4 py-3 animate-narrative-reveal" style={{ animationDelay: '0.6s' }}>
-          <p className="text-sm text-amber-800 italic leading-relaxed">{narrative.petSummary}</p>
+        <div
+          className="flex items-start gap-2.5 bg-amber-50/80 rounded-2xl px-3.5 py-3 animate-narrative-reveal"
+          style={{ animationDelay: '0.6s' }}
+        >
+          <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 bg-white/70">
+            <PetSvg animal={store.space.companion} expression="happy" className="w-full h-full" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold text-amber-900 mb-0.5">{companion.name}</p>
+            <p className="text-sm text-amber-800 italic leading-relaxed">
+              “{stripPetSpeakerPrefix(narrative.petSummary)}”
+            </p>
+          </div>
         </div>
 
         {/* Metadata */}

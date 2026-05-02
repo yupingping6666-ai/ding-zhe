@@ -4,7 +4,9 @@ import type { Store } from '@/store'
 import { CommentSection } from '@/components/CommentSection'
 import { DeleteConfirmDialog } from '@/components/DeleteConfirmDialog'
 import PetCommentLine from '@/components/PetCommentLine'
+import PetSvg from '@/components/pet/PetSvg'
 import { COMPANION_CHARACTERS } from '@/lib/companion'
+import { stripPetSpeakerPrefix } from '@/lib/narrative'
 import { UserAvatar } from '@/components/UserAvatar'
 import { ArrowLeft, MapPin, Pencil, Trash2, Video, Eye, EyeOff, X, Check, Sparkles, Heart } from 'lucide-react'
 
@@ -303,8 +305,16 @@ export function FeelingDetailPage({ store, feelingId, currentUserId, onBack, onO
                 <p className="text-xs text-amber-600/70 font-medium mb-2">✨ 这一天的意义</p>
                 <p className="text-sm text-foreground leading-relaxed">{narrative.bodyText}</p>
               </div>
-              <div className="flex items-start gap-1.5 px-1">
-                <p className="text-xs text-gray-500 leading-relaxed italic">{narrative.petSummary}</p>
+              <div className="flex items-start gap-2 px-1">
+                <div className="w-7 h-7 rounded-full overflow-hidden flex-shrink-0 bg-amber-50">
+                  <PetSvg animal={store.space.companion} expression="happy" className="w-full h-full" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-2xs font-semibold text-amber-700/80">{COMPANION_CHARACTERS[store.space.companion].name}</p>
+                  <p className="text-xs text-gray-500 leading-relaxed italic">
+                    “{stripPetSpeakerPrefix(narrative.petSummary)}”
+                  </p>
+                </div>
               </div>
             </div>
           ) : (

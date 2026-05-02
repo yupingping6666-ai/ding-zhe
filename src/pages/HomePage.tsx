@@ -1,36 +1,26 @@
 import { useState, useCallback, useMemo, useEffect } from 'react'
-import { TaskCard } from '@/components/TaskCard'
-import { SentItemCard } from '@/components/SentItemCard'
-import { ITEM_TYPE_CONFIG } from '@/types'
 import type { PetExpression } from '@/types'
-import { formatTime } from '@/lib/time'
 import type { Store } from '@/store'
 import { useCurrentUser } from '@/contexts/UserContext'
-import { COMPANION_CHARACTERS, getCompanionMessage } from '@/lib/companion'
+import { COMPANION_CHARACTERS } from '@/lib/companion'
 import { PetEmoji } from '@/components/PetEmoji'
 import { canInteract, getInteractionCooldownRemaining, PET_COOLDOWNS } from '@/lib/pet-state'
 import PetSvg from '@/components/pet/PetSvg'
 import { getTimeOfDay } from '@/lib/time-of-day'
-import { Bell, Camera, Mic, Heart, CheckCircle2, Calendar, BarChart3, Sparkles, ChevronRight, UtensilsCrossed, HandHeart } from 'lucide-react'
+import { Bell, Camera, Mic, Heart, CheckCircle2, Calendar, BarChart3, Sparkles, ChevronRight, UtensilsCrossed, HandHeart, ClipboardList } from 'lucide-react'
 
 interface Props {
   store: Store
   userMode: 'single' | 'dual'
-  onOpenDetail: (templateId: string) => void
-  onOpenFeelingDetail: (feelingId: string) => void
-  onTriggerReminder: (instanceId: string) => void
-  onVoiceCreate: () => void
   onOpenPetPanel: () => void
   onOpenCreate: () => void
+  onVoiceCreate: () => void
   onOpenNotifications: () => void
+  onOpenTodo: () => void
 }
 
-type HomeTab = 'received' | 'sent'
-
-export function HomePage({ store, userMode, onOpenDetail, onOpenFeelingDetail, onTriggerReminder, onVoiceCreate, onOpenPetPanel, onOpenCreate, onOpenNotifications }: Props) {
+export function HomePage({ store, userMode, onOpenPetPanel, onOpenCreate, onVoiceCreate, onOpenNotifications, onOpenTodo }: Props) {
   const currentUserId = useCurrentUser()
-  const [tab, setTab] = useState<HomeTab>('received')
-  const [expandedUpcoming, setExpandedUpcoming] = useState<Set<string>>(new Set())
   const [petBounce, setPetBounce] = useState(false)
   const [floatingText, setFloatingText] = useState<string | null>(null)
   const [overrideExpression, setOverrideExpression] = useState<PetExpression | null>(null)
@@ -38,10 +28,6 @@ export function HomePage({ store, userMode, onOpenDetail, onOpenFeelingDetail, o
 
   const user = store.getUserProfile(currentUserId)
   const character = COMPANION_CHARACTERS[store.space.companion]
-
-  const { getTemplate, completeInstance, deferInstance, skipInstance, cantDoInstance, respondWithFeedback } = store
-  const receivedItems = store.getReceivedItems(currentUserId)
-  const sentItems = store.getSentItems(currentUserId)
   const notifications = store.getUserNotifications(currentUserId)
 
   // Pet interaction cooldowns
@@ -92,34 +78,21 @@ export function HomePage({ store, userMode, onOpenDetail, onOpenFeelingDetail, o
     setTimeout(() => setOverrideExpression(null), 3000)
   }, [showFloat])
 
-  // ---- Received tab sections ----
-  const needResponse = receivedItems.filter((i) => i.status === 'deferred')
-  const needAction = receivedItems.filter((i) => i.status === 'awaiting')
-  const upcoming = receivedItems.filter((i) => i.status === 'pending')
-  const handled = receivedItems.filter(
-    (i) => i.status === 'completed' || i.status === 'skipped' || i.status === 'expired'
-  )
-  const doneCount = handled.filter((i) => i.status === 'completed').length
-  const activeCount = needResponse.length + needAction.length
+  // Summary counts for the todo card
+  const allReceivedItems = store.getReceivedItems(currentUserId)
+  // In single mode, only count self-created items (matching TodoPage logic)
+  const receivedItems = userMode === 'single'
+    ? allReceivedItems.filter((i) => {
+        const tpl = store.getTemplate(i.templateId)
+        return tpl && tpl.creatorId === tpl.receiverId
+      })
+    : allReceivedItems
+  const activeCount = receivedItems.filter((i) => i.status === 'deferred' || i.status === 'awaiting').length
+  const upcomingCount = receivedItems.filter((i) => i.status === 'pending').length
+  const completedCount = receivedItems.filter((i) => i.status === 'completed').length
 
-  // ---- Sent tab sections ----
-  const sentWaiting = sentItems.filter((i) =>
-    i.status === 'pending' || i.status === 'awaiting' ||
-    (i.status === 'deferred' && i.relationStatus !== 'responded')
-  )
-  const sentProcessing = sentItems.filter((i) =>
-    i.status === 'deferred' && i.relationStatus === 'responded'
-  )
-  const sentDone = sentItems.filter((i) => i.status === 'completed')
-  const sentFailed = sentItems.filter((i) => i.status === 'skipped')
-
-  // Single mode
-  const selfItems = receivedItems.filter((i) => {
-    const tpl = store.getTemplate(i.templateId)
-    return tpl && tpl.creatorId === tpl.receiverId
-  })
-  const selfPending = selfItems.filter((i) => i.status === 'pending' || i.status === 'awaiting' || i.status === 'deferred')
-  const selfDone = selfItems.filter((i) => i.status === 'completed' || i.status === 'skipped' || i.status === 'expired')
+  // Per-user today stats (for stats card)
+  const todayUserStats = store.getTodayReceivedStats(currentUserId, userMode === 'single')
 
   // Pet expression
   const isNight = getTimeOfDay() === 'night'
@@ -231,8 +204,8 @@ export function HomePage({ store, userMode, onOpenDetail, onOpenFeelingDetail, o
 
   // AI feedback based on today's activity
   const aiComment = useMemo(() => {
-    const completed = store.todayCompletedCount
-    const total = store.todayTotalCount
+    const completed = todayUserStats.completed
+    const total = todayUserStats.total
     const feelingCount = store.todayFeelingCount
     const name = character.name
 
@@ -249,7 +222,24 @@ export function HomePage({ store, userMode, onOpenDetail, onOpenFeelingDetail, o
       return `${name}说：记录感受是了解自己的第一步，做得不错~`
     }
     return `${name}说：今天还没有动态哦，来记录一下心情吧~`
-  }, [store.todayCompletedCount, store.todayTotalCount, store.todayFeelingCount, character.name])
+  }, [todayUserStats.completed, todayUserStats.total, store.todayFeelingCount, character.name])
+
+  // Summary text for the todo card
+  const summaryText = (() => {
+    if (activeCount > 0 && upcomingCount > 0) {
+      return `${activeCount} 件待处理，${upcomingCount} 件待会儿的`
+    }
+    if (activeCount > 0) {
+      return `有 ${activeCount} 件事等你处理`
+    }
+    if (upcomingCount > 0) {
+      return `${completedCount > 0 ? `已完成 ${completedCount} 件，` : ''}还有 ${upcomingCount} 件待会儿的`
+    }
+    if (completedCount > 0) {
+      return `已搞定 ${completedCount} 件`
+    }
+    return '暂无待办事项'
+  })()
 
   return (
     <div className="pb-6">
@@ -375,7 +365,7 @@ export function HomePage({ store, userMode, onOpenDetail, onOpenFeelingDetail, o
           <div className="flex-1 bg-white rounded-2xl px-3 py-3.5 text-center shadow-card-default border border-border/30">
             <div className="flex items-center justify-center gap-1.5 mb-1">
               <CheckCircle2 className="w-3.5 h-3.5 text-success" />
-              <p className="text-xl font-extrabold text-foreground">{store.todayCompletedCount}/{store.todayTotalCount}</p>
+              <p className="text-xl font-extrabold text-foreground">{todayUserStats.completed}/{todayUserStats.total}</p>
             </div>
             <p className="text-2xs text-muted-foreground font-medium">任务完成</p>
           </div>
@@ -406,6 +396,28 @@ export function HomePage({ store, userMode, onOpenDetail, onOpenFeelingDetail, o
         >
           <Mic className="w-4 h-4" />
           提醒日记
+        </button>
+      </div>
+
+      {/* ===== Today Summary Card ===== */}
+      <div className="px-4 pt-4">
+        <button
+          onClick={onOpenTodo}
+          className="w-full bg-white rounded-2xl p-4 shadow-card-default border border-border/30 flex items-center gap-3.5 hover:bg-accent/30 active:bg-accent/50 transition-colors text-left"
+        >
+          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+            <ClipboardList className="w-5 h-5 text-primary" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-foreground">待办事项</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{summaryText}</p>
+          </div>
+          {activeCount > 0 && (
+            <span className="px-2.5 py-1 rounded-full bg-primary/10 text-primary text-xs font-bold flex-shrink-0">
+              {activeCount}
+            </span>
+          )}
+          <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
         </button>
       </div>
 
@@ -460,466 +472,6 @@ export function HomePage({ store, userMode, onOpenDetail, onOpenFeelingDetail, o
           </div>
         </div>
       </div>
-
-      {/* ===== Single mode content ===== */}
-      {userMode === 'single' && (
-        <div className="px-4 pt-5 space-y-5">
-          {store.getFeelings(currentUserId, { aboutPartner: true }).length > 0 && (
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-sm font-bold text-foreground">最近的感受</h2>
-                <ChevronRight className="w-4 h-4 text-muted-foreground" />
-              </div>
-              <div className="space-y-2">
-                {store.getFeelings(currentUserId, { aboutPartner: true })
-                  .slice(0, 3)
-                  .map((feeling) => (
-                    <div
-                      key={feeling.id}
-                      onClick={() => onOpenFeelingDetail(feeling.id)}
-                      className="bg-white rounded-2xl p-4 border border-border/30 flex items-start gap-3 cursor-pointer hover:bg-accent/30 active:bg-accent/50 transition-colors shadow-card-default"
-                    >
-                      <span className="text-lg">{feeling.mood}</span>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-foreground line-clamp-2">{feeling.content}</p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {new Date(feeling.createdAt).toLocaleDateString('zh-CN')}
-                          {feeling.isDraft && <span className="ml-2 text-primary">草稿</span>}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-              </div>
-            </div>
-          )}
-
-          {store.getDraftItems(currentUserId).length > 0 && (
-            <div>
-              <h2 className="text-sm font-bold text-foreground mb-3">未发送</h2>
-              <div className="space-y-2">
-                {store.getDraftItems(currentUserId).map((inst) => {
-                  const tpl = store.getTemplate(inst.templateId)
-                  if (!tpl) return null
-                  return (
-                    <div
-                      key={inst.id}
-                      className="bg-white rounded-2xl p-4 border border-dashed border-primary/30 flex items-center gap-3 shadow-card-default"
-                    >
-                      <span className="text-lg">{ITEM_TYPE_CONFIG[tpl.itemType].emoji}</span>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-foreground truncate">{tpl.name}</p>
-                        {tpl.note && <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{tpl.note}</p>}
-                      </div>
-                      <button
-                        onClick={() => store.promoteDraftToSent(tpl.id)}
-                        className="px-3 py-1.5 rounded-full bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors"
-                      >
-                        发送
-                      </button>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-
-          {selfPending.length > 0 && (
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-sm font-bold text-foreground">我记录的</h2>
-                <span className="text-xs text-muted-foreground">{selfPending.length} 件待处理</span>
-              </div>
-              <div className="space-y-2">
-                {selfPending.map((inst) => {
-                  const tpl = store.getTemplate(inst.templateId)
-                  if (!tpl) return null
-                  return (
-                    <TaskCard
-                      key={inst.id}
-                      instance={inst}
-                      template={tpl}
-                      store={store}
-                      onComplete={completeInstance}
-                      onDefer={deferInstance}
-                      onSkip={skipInstance}
-                      onCantDo={cantDoInstance}
-                      onTapName={() => onOpenDetail(inst.templateId)}
-                      onDateChange={(instanceId, newDate) => store.updateInstanceDate(instanceId, newDate)}
-                      variant={inst.status === 'deferred' ? 'deferred' : inst.status === 'awaiting' ? 'awaiting' : 'pending'}
-                    />
-                  )
-                })}
-              </div>
-            </div>
-          )}
-
-          {selfDone.length > 0 && (
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-sm font-bold text-foreground">已完成</h2>
-                <Sparkles className="w-4 h-4 text-muted-foreground" />
-              </div>
-              <div className="space-y-2">
-                {selfDone.map((inst) => {
-                  const tpl = store.getTemplate(inst.templateId)
-                  if (!tpl) return null
-                  return (
-                    <TaskCard
-                      key={inst.id}
-                      instance={inst}
-                      template={tpl}
-                      store={store}
-                      onComplete={completeInstance}
-                      onDefer={deferInstance}
-                      onSkip={skipInstance}
-                      onCantDo={cantDoInstance}
-                      onTapName={() => onOpenDetail(inst.templateId)}
-                      variant={inst.status === 'completed' ? 'completed' : 'skipped'}
-                    />
-                  )
-                })}
-              </div>
-            </div>
-          )}
-
-          {selfItems.length === 0 &&
-           store.getFeelings(currentUserId).length === 0 &&
-           store.getDraftItems(currentUserId).length === 0 && (
-            <div className="text-center py-16 text-muted-foreground">
-              <p className="text-4xl mb-3">📝</p>
-              <p className="text-sm">还没有记录</p>
-              <p className="text-xs mt-1">点击 + 记录感受或创建提醒吧</p>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ===== Dual mode tabs ===== */}
-      {userMode === 'dual' && (
-      <>
-      <div className="px-4 pt-5">
-        <div className="flex bg-secondary/80 rounded-2xl p-1 gap-1">
-          <button
-            onClick={() => setTab('received')}
-            className={`flex-1 py-2.5 px-3 rounded-xl text-sm font-bold transition-all ${
-              tab === 'received' ? 'bg-white text-foreground shadow-sm' : 'text-muted-foreground'
-            }`}
-          >
-            我收到的
-            {activeCount > 0 && tab !== 'received' && (
-              <span className="ml-1.5 text-xs bg-deferred/15 text-deferred px-2 py-0.5 rounded-full font-bold">{activeCount}</span>
-            )}
-          </button>
-          <button
-            onClick={() => setTab('sent')}
-            className={`flex-1 py-2.5 px-3 rounded-xl text-sm font-bold transition-all ${
-              tab === 'sent' ? 'bg-white text-foreground shadow-sm' : 'text-muted-foreground'
-            }`}
-          >
-            我发出的
-            {sentItems.length > 0 && tab !== 'sent' && (
-              <span className="ml-1.5 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-bold">{sentItems.length}</span>
-            )}
-          </button>
-        </div>
-      </div>
-
-      {userMode === 'dual' && notifications.length > 0 && tab === 'received' && (
-        <div className="px-4 mt-3">
-          <div className="bg-care-surface/70 border border-care/15 rounded-2xl p-3.5 space-y-2">
-            {notifications.slice(0, 3).map((n) => (
-              <div key={n.id} className="flex items-center gap-2.5">
-                <span className="text-sm">💌</span>
-                <p className="text-xs text-foreground flex-1 truncate leading-relaxed">{n.message}</p>
-                <button
-                  onClick={() => store.dismissNotification(n.id)}
-                  className="text-2xs text-care-foreground font-semibold hover:text-foreground px-2 py-0.5 rounded-full bg-care/10"
-                >
-                  知道了
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* RECEIVED TAB */}
-      {tab === 'received' && (
-        <>
-          <div className="px-4 pt-3 pb-1">
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              {doneCount > 0 && activeCount > 0
-                ? `已温柔回应 ${doneCount} 件，还有 ${activeCount} 件等着你~`
-                : doneCount > 0
-                  ? `今天已温柔回应了 ${doneCount} 件小事`
-                  : activeCount > 0
-                    ? `有 ${activeCount} 件小事在等你回应~`
-                    : ''}
-            </p>
-          </div>
-
-          {needResponse.length > 0 && (
-            <section className="px-4 mt-3 animate-fade-in">
-              <SectionHeader emoji="💭" title="等你回应的" count={needResponse.length} color="deferred" />
-              <div className="space-y-3">
-                {needResponse.map((inst) => {
-                  const tpl = getTemplate(inst.templateId)
-                  if (!tpl) return null
-                  return (
-                  <TaskCard
-                    key={inst.id}
-                    instance={inst}
-                    template={tpl}
-                    store={store}
-                    onComplete={completeInstance}
-                    onDefer={deferInstance}
-                    onSkip={skipInstance}
-                    onCantDo={cantDoInstance}
-                    onFeedback={respondWithFeedback}
-                    onTapName={() => onOpenDetail(inst.templateId)}
-                    variant="deferred"
-                  />
-                  )
-                })}
-              </div>
-            </section>
-          )}
-
-          {needResponse.length === 0 && needAction.length === 0 && (
-            <section className="px-4 mt-6">
-              <div className="text-center py-10 bg-success-surface/50 rounded-2xl border border-success/10">
-                <span className="block mb-2 animate-float"><PetEmoji value={character.expressions.sleeping} size="w-10 h-10" /></span>
-                <p className="text-sm font-bold text-foreground">{getCompanionMessage(character, 'empty_all').text}</p>
-                <p className="text-xs text-muted-foreground mt-1">保持这个节奏~</p>
-              </div>
-            </section>
-          )}
-
-          {needAction.length > 0 && (
-            <section className="px-4 mt-5 animate-fade-in">
-              <SectionHeader emoji="📋" title="等你处理的" color="awaiting" />
-              <div className="space-y-3">
-                {needAction.map((inst) => {
-                  const tpl = getTemplate(inst.templateId)
-                  if (!tpl) return null
-                  return (
-                  <div key={inst.id} onClick={() => onTriggerReminder(inst.id)} className="cursor-pointer">
-                    <TaskCard
-                      instance={inst}
-                      template={tpl}
-                      store={store}
-                      onComplete={completeInstance}
-                      onDefer={deferInstance}
-                      onSkip={skipInstance}
-                      onCantDo={cantDoInstance}
-                      onFeedback={respondWithFeedback}
-                      onTapName={() => onOpenDetail(inst.templateId)}
-                      variant="awaiting"
-                    />
-                  </div>
-                  )
-                })}
-              </div>
-            </section>
-          )}
-
-          {upcoming.length > 0 && (
-            <section className="px-4 mt-5 animate-fade-in">
-              <SectionHeader emoji="⏰" title="待会儿的事" count={upcoming.length} />
-              <div className="space-y-3">
-                {upcoming.map((inst) => {
-                  const tpl = getTemplate(inst.templateId)
-                  if (!tpl) return null
-                  const typeConf = ITEM_TYPE_CONFIG[tpl.itemType]
-                  const isExpanded = expandedUpcoming.has(inst.id)
-                  const sender = tpl.creatorId !== tpl.receiverId ? store.getUserProfile(tpl.creatorId) : null
-
-                  if (isExpanded) {
-                    return (
-                      <TaskCard
-                        key={inst.id}
-                        instance={inst}
-                        template={tpl}
-                        store={store}
-                        onComplete={completeInstance}
-                        onDefer={deferInstance}
-                        onSkip={skipInstance}
-                        onCantDo={cantDoInstance}
-                        onFeedback={respondWithFeedback}
-                        onTapName={() => onOpenDetail(inst.templateId)}
-                        variant="pending"
-                      />
-                    )
-                  }
-
-                  return (
-                    <div
-                      key={inst.id}
-                      onClick={() => setExpandedUpcoming((prev) => new Set(prev).add(inst.id))}
-                      className="flex items-center gap-3 px-4 py-3.5 bg-white rounded-2xl border border-border/30 shadow-card-default hover:bg-accent/30 transition-colors cursor-pointer active:bg-accent/50"
-                    >
-                      <span className="text-lg">{typeConf.emoji}</span>
-                      <div className="flex-1 min-w-0">
-                        <span className="text-sm font-semibold text-foreground truncate block">{tpl.name}</span>
-                        {sender && <span className="text-2xs text-muted-foreground">{sender.name}{typeConf.senderVerb}</span>}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className={`sticker sticker-${tpl.itemType}`}>{typeConf.label}</span>
-                        <span className="text-xs text-muted-foreground/70">{formatTime(inst.scheduledTime)}</span>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </section>
-          )}
-
-          {handled.length > 0 && (
-            <section className="px-4 mt-5 animate-fade-in">
-              <SectionHeader emoji="✨" title="你已处理的" />
-              <div className="bg-white rounded-2xl border border-border/30 divide-y divide-border/30 overflow-hidden shadow-card-default">
-                {handled.map((inst) => {
-                  const tpl = getTemplate(inst.templateId)
-                  if (!tpl) return null
-                  const typeConf = ITEM_TYPE_CONFIG[tpl.itemType]
-                  const statusEmoji = inst.status === 'completed' ? '🌟' : inst.status === 'skipped' ? '⏭' : '⏰'
-                  const statusText = inst.status === 'completed'
-                    ? `${formatTime(inst.completedAt!)} 完成`
-                    : inst.status === 'skipped'
-                      ? (inst.actionLog.some(a => a.action === 'cant_do') ? '做不了' : '跳过了')
-                      : '没来得及'
-
-                  return (
-                    <div
-                      key={inst.id}
-                      onClick={() => onOpenDetail(inst.templateId)}
-                      className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-accent/30 active:bg-accent/50 transition-colors"
-                    >
-                      <span className="text-base opacity-50">{typeConf.emoji}</span>
-                      <div className="flex-1 min-w-0">
-                        <span className="text-sm text-muted-foreground truncate block">{tpl.name}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-xs">{statusEmoji}</span>
-                        <span className="text-xs text-muted-foreground">{statusText}</span>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </section>
-          )}
-
-          <div className="flex justify-center pt-6 pb-2">
-            <button
-              onClick={onVoiceCreate}
-              className="group flex items-center gap-2.5 px-6 py-3.5 rounded-full gradient-float-btn text-primary-foreground shadow-float active:scale-95 transition-all hover:shadow-xl"
-            >
-              <Mic className="w-5 h-5" />
-              <span className="text-sm font-bold">提醒日记</span>
-            </button>
-          </div>
-        </>
-      )}
-
-      {/* SENT TAB */}
-      {tab === 'sent' && (
-        <>
-          {sentItems.length === 0 ? (
-            <section className="px-4 mt-8">
-              <div className="text-center py-12">
-                <span className="block mb-3 animate-float"><PetEmoji value={character.expressions.idle} size="w-10 h-10" /></span>
-                <p className="text-sm font-bold text-foreground">{getCompanionMessage(character, 'empty_sent').text}</p>
-                <p className="text-xs text-muted-foreground mt-1.5">给TA创建一个关心或小任务吧</p>
-              </div>
-            </section>
-          ) : (
-            <div className="px-4 mt-3 space-y-5">
-              {sentWaiting.length > 0 && (
-                <section className="animate-fade-in">
-                  <SectionHeader emoji="💌" title="等TA回应" count={sentWaiting.length} />
-                  <div className="space-y-3">
-                    {sentWaiting.map((inst) => {
-                      const tpl = getTemplate(inst.templateId)
-                      if (!tpl) return null
-                      return <SentItemCard key={inst.id} instance={inst} template={tpl} store={store} onTapName={() => onOpenDetail(inst.templateId)} />
-                    })}
-                  </div>
-                </section>
-              )}
-              {sentProcessing.length > 0 && (
-                <section className="animate-fade-in">
-                  <SectionHeader emoji="⏳" title="TA处理中" count={sentProcessing.length} />
-                  <div className="space-y-3">
-                    {sentProcessing.map((inst) => {
-                      const tpl = getTemplate(inst.templateId)
-                      if (!tpl) return null
-                      return <SentItemCard key={inst.id} instance={inst} template={tpl} store={store} onTapName={() => onOpenDetail(inst.templateId)} />
-                    })}
-                  </div>
-                </section>
-              )}
-              {sentDone.length > 0 && (
-                <section className="animate-fade-in">
-                  <SectionHeader emoji="🎉" title="已完成" count={sentDone.length} />
-                  <div className="space-y-3">
-                    {sentDone.map((inst) => {
-                      const tpl = getTemplate(inst.templateId)
-                      if (!tpl) return null
-                      return <SentItemCard key={inst.id} instance={inst} template={tpl} store={store} onTapName={() => onOpenDetail(inst.templateId)} />
-                    })}
-                  </div>
-                </section>
-              )}
-              {sentFailed.length > 0 && (
-                <section className="animate-fade-in">
-                  <SectionHeader emoji="😅" title="做不了" count={sentFailed.length} />
-                  <div className="space-y-3">
-                    {sentFailed.map((inst) => {
-                      const tpl = getTemplate(inst.templateId)
-                      if (!tpl) return null
-                      return <SentItemCard key={inst.id} instance={inst} template={tpl} store={store} onTapName={() => onOpenDetail(inst.templateId)} />
-                    })}
-                  </div>
-                </section>
-              )}
-            </div>
-          )}
-        </>
-      )}
-      </>
-      )}
-    </div>
-  )
-}
-
-function SectionHeader({ emoji, title, count, color }: {
-  emoji: string
-  title: string
-  count?: number
-  color?: string
-}) {
-  return (
-    <div className="flex items-center justify-between mb-3">
-      <div className="flex items-center gap-2">
-        <span className="text-base">{emoji}</span>
-        <h2 className={`text-sm font-bold ${
-          color === 'deferred' ? 'text-deferred-foreground' :
-          color === 'awaiting' ? 'text-awaiting-foreground' :
-          'text-foreground'
-        }`}>
-          {title}
-        </h2>
-      </div>
-      {count !== undefined && count > 0 && (
-        <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${
-          color === 'deferred' ? 'bg-deferred/10 text-deferred' :
-          color === 'awaiting' ? 'bg-awaiting/10 text-awaiting' :
-          'bg-secondary text-muted-foreground'
-        }`}>
-          {count} 件
-        </span>
-      )}
     </div>
   )
 }

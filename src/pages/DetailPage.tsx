@@ -7,7 +7,7 @@ import {
   WEEKDAY_LABELS,
   ITEM_TYPE_CONFIG,
 } from '@/types'
-import type { Category, RepeatRule, FollowUpIntensity } from '@/types'
+import type { Category, RepeatRule, FollowUpIntensity, RelationStatus } from '@/types'
 import { formatDelay, formatTime } from '@/lib/time'
 import type { Store } from '@/store'
 import { useCurrentUser } from '@/contexts/UserContext'
@@ -19,6 +19,15 @@ interface Props {
   templateId: string
   store: Store
   onBack: () => void
+}
+
+const RELATION_STATUS_LABELS: Record<RelationStatus, string> = {
+  draft: '草稿',
+  sent: '已发送',
+  delivered: '已送达',
+  seen: '已查看',
+  responded: '已回应',
+  resolved: '已完结',
 }
 
 export function DetailPage({ templateId, store, onBack }: Props) {
@@ -112,74 +121,93 @@ export function DetailPage({ templateId, store, onBack }: Props) {
       </div>
 
       <div className="px-5 space-y-5">
-        {/* Task info header */}
-        <div className="bg-card rounded-3xl border border-border/40 p-5">
-          <div className="flex items-center gap-3 mb-3">
-            <span className="text-2xl">{typeConf.emoji}</span>
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <h2 className="text-lg font-bold text-foreground">{template.name}</h2>
-                <span className={`sticker sticker-${template.itemType}`}>
-                  {typeConf.label}
+        {/* Task info card */}
+        <div className="bg-card rounded-3xl border border-border/40 overflow-hidden">
+          {/* Header: name + type badge */}
+          <div className="px-5 pt-5 pb-4">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">{typeConf.emoji}</span>
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-lg font-bold text-foreground">{template.name}</h2>
+                  <span className={`sticker sticker-${template.itemType}`}>
+                    {typeConf.label}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Relationship info */}
+            {!isSelf && (
+              <div className="flex items-center gap-3 mt-3 px-3 py-2.5 bg-secondary/60 rounded-2xl">
+                <div className="flex items-center gap-1.5">
+                  <PetEmoji value={character.avatar} size="w-5 h-5" />
+                  <span className="text-xs font-semibold text-foreground">{user.name}</span>
+                </div>
+                <span className="text-xs text-muted-foreground">
+                  {isCreator ? '→' : '←'}
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <PetEmoji value={character.avatar} size="w-5 h-5" />
+                  <span className="text-xs font-semibold text-foreground">{otherUser.name}</span>
+                </div>
+                <span className="text-2xs text-muted-foreground ml-auto">
+                  {isCreator ? '你发起的' : '发给你的'}
                 </span>
               </div>
-              <span className="text-xs text-muted-foreground">{CATEGORY_CONFIG[template.category].label}</span>
-            </div>
+            )}
           </div>
 
-          {/* Relationship info with companions */}
-          {!isSelf && (
-            <div className="flex items-center gap-3 mb-3 px-3 py-2.5 bg-secondary/60 rounded-2xl">
-              <div className="flex items-center gap-1.5">
-                <PetEmoji value={character.avatar} size="w-5 h-5" />
-                <span className="text-xs font-semibold text-foreground">{user.name}</span>
-              </div>
-              <span className="text-xs text-muted-foreground">
-                {isCreator ? '→' : '←'}
-              </span>
-              <div className="flex items-center gap-1.5">
-                <PetEmoji value={character.avatar} size="w-5 h-5" />
-                <span className="text-xs font-semibold text-foreground">{otherUser.name}</span>
-              </div>
-              <span className="text-2xs text-muted-foreground ml-auto">
-                {isCreator ? '你发起的' : '发给你的'}
-              </span>
-            </div>
-          )}
-
-          {/* Creator note */}
+          {/* Note / pickup code */}
           {template.note && (
-            <div className="mb-3 px-3.5 py-2 rounded-2xl rounded-tl-md bg-care-surface/50 border border-care/10">
-              <p className="text-xs text-foreground leading-relaxed">"{template.note}"</p>
-            </div>
+            <>
+              <div className="border-t border-border/40" />
+              <div className="px-5 py-3.5 flex items-start gap-2.5">
+                <span className="text-sm mt-0.5">{template.actionType === 'pickup' ? '📦' : '💬'}</span>
+                <div>
+                  <span className="text-2xs text-muted-foreground block">{template.actionType === 'pickup' ? '取件码' : '备注'}</span>
+                  <span className="text-sm font-semibold text-foreground">{template.note}</span>
+                </div>
+              </div>
+            </>
           )}
 
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <div>
-              <span className="text-xs text-muted-foreground block">提醒时间</span>
-              <span className="font-medium text-foreground">
-                {REPEAT_CONFIG[template.repeatRule].label} {template.remindTime}
-              </span>
-              {template.repeatRule === 'weekly' && (
-                <span className="text-xs text-muted-foreground block mt-0.5">
-                  每周{template.weeklyDays.map((d) => WEEKDAY_LABELS[d]).join('、')}
+          {/* Structured attribute list */}
+          <div className="border-t border-border/40" />
+          <div className="divide-y divide-border/40">
+            <div className="px-5 py-3 flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">提醒时间</span>
+              <div className="text-right">
+                <span className="text-sm font-medium text-foreground">
+                  {REPEAT_CONFIG[template.repeatRule].label} {template.remindTime}
                 </span>
-              )}
+                {template.repeatRule === 'weekly' && (
+                  <span className="text-2xs text-muted-foreground block mt-0.5">
+                    每周{template.weeklyDays.map((d) => WEEKDAY_LABELS[d]).join('、')}
+                  </span>
+                )}
+              </div>
             </div>
-            <div>
-              <span className="text-xs text-muted-foreground block">提醒对象</span>
-              <span className="font-medium text-foreground">
+            <div className="px-5 py-3 flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">分类</span>
+              <span className="text-sm font-medium text-foreground flex items-center gap-1">
+                {CATEGORY_CONFIG[template.category].emoji} {CATEGORY_CONFIG[template.category].label}
+              </span>
+            </div>
+            <div className="px-5 py-3 flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">提醒对象</span>
+              <span className="text-sm font-medium text-foreground">
                 {store.getUserProfile(template.receiverId).name}
               </span>
             </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3 text-sm mt-3">
-            <div>
-              <span className="text-xs text-muted-foreground block">跟进强度</span>
-              <span className="font-medium text-foreground">{intensity.label}</span>
-              <span className="text-xs text-muted-foreground block mt-0.5">
-                {intensity.interval}分钟/最多{intensity.maxFollowUps}次
-              </span>
+            <div className="px-5 py-3 flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">跟进强度</span>
+              <div className="text-right">
+                <span className="text-sm font-medium text-foreground">{intensity.label}</span>
+                <span className="text-2xs text-muted-foreground block mt-0.5">
+                  {intensity.interval}分钟 / 最多{intensity.maxFollowUps}次
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -197,7 +225,7 @@ export function DetailPage({ templateId, store, onBack }: Props) {
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">关系状态</span>
-                <span className="text-foreground">{currentInstance.relationStatus}</span>
+                <span className="text-foreground">{RELATION_STATUS_LABELS[currentInstance.relationStatus] || currentInstance.relationStatus}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">原定时间</span>

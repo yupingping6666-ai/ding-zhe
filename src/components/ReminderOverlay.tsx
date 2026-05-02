@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { Button } from '@/components/ui/button'
-import { ITEM_TYPE_CONFIG } from '@/types'
+import { ITEM_TYPE_CONFIG, TASK_ACTION_CONFIG } from '@/types'
 import { formatDelay, formatTime } from '@/lib/time'
 import type { TaskInstance, TaskTemplate } from '@/types'
 import { UserAvatar } from '@/components/UserAvatar'
@@ -8,13 +8,14 @@ import { useCurrentUser } from '@/contexts/UserContext'
 import { COMPANION_CHARACTERS } from '@/lib/companion'
 import { PetEmoji } from '@/components/PetEmoji'
 import type { Store } from '@/store'
-import { X, Send } from 'lucide-react'
+import { X, Send, Camera } from 'lucide-react'
+import { fileToDataUrl, compressImage } from '@/lib/image-utils'
 
 interface Props {
   instance: TaskInstance
   template: TaskTemplate | undefined
   store: Store
-  onComplete: (id: string) => void
+  onComplete: (id: string, note?: string, photoUrl?: string) => void
   onDefer: (id: string, mins: number) => void
   onSkip: (id: string) => void
   onCantDo: (id: string) => void
@@ -31,6 +32,8 @@ const DEFER_OPTIONS = [
 export function ReminderOverlay({ instance, template, store, onComplete, onDefer, onSkip, onCantDo, onFeedback, onClose }: Props) {
   const [showDefer, setShowDefer] = useState(false)
   const [feedbackText, setFeedbackText] = useState('')
+  const [pickupPhoto, setPickupPhoto] = useState<string | null>(null)
+  const pickupFileRef = useRef<HTMLInputElement>(null)
   const currentUserId = useCurrentUser()
   const user = store.getUserProfile(currentUserId)
   const character = COMPANION_CHARACTERS[store.space.companion]
@@ -42,6 +45,7 @@ export function ReminderOverlay({ instance, template, store, onComplete, onDefer
   const delayText = formatDelay(instance.deferredSince)
   const isSelf = template.creatorId === template.receiverId
   const sender = !isSelf ? store.getUserProfile(template.creatorId) : null
+  const isPickup = template.actionType === 'pickup'
 
   const bgClass = template.itemType === 'care' ? 'gradient-care' :
     template.itemType === 'confirm' ? 'gradient-confirm' : 'gradient-todo'
@@ -125,9 +129,65 @@ export function ReminderOverlay({ instance, template, store, onComplete, onDefer
             </div>
           )}
 
+          {/* Pickup: optional photo + confirm */}
+          {isPickup && (
+            <div className="mb-5 space-y-3">
+              {pickupPhoto && (
+                <div className="flex justify-center">
+                  <div className="relative w-28 h-28 rounded-2xl overflow-hidden border border-border/40">
+                    <img src={pickupPhoto} alt="取件照片" className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => setPickupPhoto(null)}
+                      className="absolute top-1 right-1 w-6 h-6 rounded-full bg-foreground/60 text-white flex items-center justify-center text-xs"
+                    >
+                      ×
+                    </button>
+                  </div>
+                </div>
+              )}
+              {!pickupPhoto && (
+                <button
+                  type="button"
+                  onClick={() => pickupFileRef.current?.click()}
+                  className="w-full py-3 rounded-2xl border-2 border-dashed border-border/60 text-sm text-muted-foreground hover:border-primary/40 hover:text-primary transition-colors flex items-center justify-center gap-2"
+                >
+                  <Camera className="w-4 h-4" />
+                  {TASK_ACTION_CONFIG.pickup.photoLabel}（可选）
+                </button>
+              )}
+              <input
+                ref={pickupFileRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0]
+                  if (!file) return
+                  try {
+                    const dataUrl = await fileToDataUrl(file)
+                    const compressed = await compressImage(dataUrl)
+                    setPickupPhoto(compressed)
+                  } catch { /* ignore */ }
+                  e.target.value = ''
+                }}
+              />
+            </div>
+          )}
+
           {/* Primary action */}
           <div className="space-y-3">
-            {template.itemType === 'care' && (
+            {isPickup && (
+              <Button
+                variant="todo"
+                size="xl"
+                className="w-full text-base"
+                onClick={() => { onComplete(instance.id, '已取件', pickupPhoto || undefined); onClose() }}
+              >
+                {TASK_ACTION_CONFIG.pickup.completeLabel}
+              </Button>
+            )}
+            {!isPickup && template.itemType === 'care' && (
               <Button
                 variant="care"
                 size="xl"
@@ -137,7 +197,7 @@ export function ReminderOverlay({ instance, template, store, onComplete, onDefer
                 收到啦~ 🧡
               </Button>
             )}
-            {template.itemType === 'todo' && (
+            {!isPickup && template.itemType === 'todo' && (
               <Button
                 variant="todo"
                 size="xl"
@@ -158,7 +218,7 @@ export function ReminderOverlay({ instance, template, store, onComplete, onDefer
               >
                 ⏰ 稍后提醒
               </Button>
-              {template.itemType === 'todo' && !isSelf ? (
+              {(isPickup || template.itemType === 'todo') && !isSelf ? (
                 <Button
                   variant="cant-do"
                   size="lg"
